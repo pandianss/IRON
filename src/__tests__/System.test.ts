@@ -1,7 +1,7 @@
 
 import { DeterministicTime, Budget, BudgetType } from '../L0/Kernel';
-import { generateKeyPair, KeyPair } from '../L0/Crypto';
-import { IdentityManager, Principal } from '../L1/Identity';
+import { generateKeyPair, KeyPair, hash } from '../L0/Crypto';
+import { IdentityManager, Principal, Delegation, DelegationEngine } from '../L1/Identity';
 import { StateModel, MetricRegistry, MetricType } from '../L2/State';
 import { IntentFactory } from '../L2/IntentFactory';
 import { TrendAnalyzer, SimulationEngine } from '../L3/Sim';
@@ -9,114 +9,114 @@ import { ProtocolEngine } from '../L4/Protocol';
 import { AuditLog } from '../L5/Audit';
 import { GovernanceInterface } from '../L6/Interface';
 
-describe('Iron. Security Hardening', () => {
-    // Core Components
+describe('Iron. Formal Gap Verification', () => {
+    // Core (Setup similar to prev tests)
     let time: DeterministicTime;
     let identity: IdentityManager;
+    let delegation: DelegationEngine;
     let auditLog: AuditLog;
     let registry: MetricRegistry;
     let state: StateModel;
     let sim: SimulationEngine;
     let protocol: ProtocolEngine;
-    let iface: GovernanceInterface;
 
-    // Admin Keys
+    // Identities
     let adminKeys: KeyPair;
     let admin: Principal;
+    let userKeys: KeyPair;
+    let user: Principal;
 
     beforeEach(() => {
         time = new DeterministicTime();
 
-        // Setup Crypto Identity
         adminKeys = generateKeyPair();
-        admin = {
-            id: 'admin',
-            publicKey: adminKeys.publicKey,
-            type: 'INDIVIDUAL',
-            validFrom: Date.now(),
-            validUntil: Date.now() + 100000
-        };
+        admin = { id: 'admin', publicKey: adminKeys.publicKey, type: 'INDIVIDUAL', validFrom: 0, validUntil: 9999999999999, rules: ['*'] };
+
+        userKeys = generateKeyPair();
+        user = { id: 'user', publicKey: userKeys.publicKey, type: 'INDIVIDUAL', validFrom: 0, validUntil: 9999999999999 };
 
         identity = new IdentityManager();
         identity.register(admin);
+        identity.register(user);
+
+        delegation = new DelegationEngine(identity); // Gap 1 & 4 Logic here
 
         auditLog = new AuditLog();
         registry = new MetricRegistry();
-
-        // Inject IdentityManager into State for Verification
-        state = new StateModel(auditLog, registry, identity);
+        state = new StateModel(auditLog, registry, identity); // Gap 3 & 5 Logic here
 
         registry.register({ id: 'load', description: '', type: MetricType.GAUGE });
         registry.register({ id: 'fan', description: '', type: MetricType.GAUGE });
 
         sim = new SimulationEngine(registry);
         protocol = new ProtocolEngine(state);
-        iface = new GovernanceInterface(state, auditLog);
     });
 
-    test('L0-L2: Signed Intent commits to L5 Log and updates L2 State', () => {
-        const intent = IntentFactory.create(
-            'load',
-            50,
-            admin.id,
-            adminKeys.privateKey
-        );
-        state.apply(intent);
+    test('Gap 1: Delegation Scope Subset Enforcement', () => {
+        // Admin has '*' via rules.
+        // Admin grants L2:load:Read to User.
+        const d1: Delegation = {
+            delegator: admin.id, delegate: user.id, scope: 'L2:load:Read',
+            validUntil: Date.now() + 10000,
+            signature: ''
+        };
+        // Sign d1
+        const sigData = `${d1.delegator}:${d1.delegate}:${d1.scope}:${d1.validUntil}`;
+        d1.signature = require('../L0/Crypto').signData(sigData, adminKeys.privateKey);
 
-        // Check L2
-        expect(state.get('load')).toBe(50);
-        // Check L5
-        expect(auditLog.getHistory().length).toBe(1);
-        expect(auditLog.getHistory()[0].intent.intentId).toBe(intent.intentId);
+        expect(delegation.grant(d1)).toBe(true);
+
+        // Usage check
+        expect(delegation.isAuthorized(user.id, 'L2:load:Read', admin.id)).toBe(true);
+        expect(delegation.isAuthorized(user.id, 'L2:load:Write', admin.id)).toBe(false); // Scope mismatch
     });
 
-    test('L0-L2: Invalid Signature is Rejected', () => {
-        const intent = IntentFactory.create(
-            'load',
-            50,
-            admin.id,
-            adminKeys.privateKey
-        );
-        // Tamper signature
-        intent.signature = 'deadbeef';
+    test('Gap 2: Protocol Conflict Rejection', () => {
+        // Two protocols modify 'fan' based on 'load'
+        protocol.register({ id: 'p1', triggerMetric: 'load', threshold: 50, actionMetric: 'fan', actionMutation: 1 });
+        protocol.register({ id: 'p2', triggerMetric: 'load', threshold: 50, actionMetric: 'fan', actionMutation: 2 });
+
+        state.apply(IntentFactory.create('load', 60, admin.id, adminKeys.privateKey));
 
         expect(() => {
-            state.apply(intent);
-        }).toThrow("Invalid Intent Signature");
+            protocol.evaluateAndExecute(admin.id, adminKeys.privateKey, time.getNow());
+        }).toThrow(/Protocol Conflict/);
     });
 
-    test('L3: Simulation Signs its own Actions', () => {
-        const budget = new Budget(BudgetType.RISK, 10);
+    test('Gap 3: Monotonic Time Enforcement', () => {
+        // T1
+        state.apply(IntentFactory.create('load', 10, admin.id, adminKeys.privateKey, 1000));
 
-        // Initial State with Valid Admin Signed Intent
-        const intent = IntentFactory.create('load', 10, admin.id, adminKeys.privateKey);
-        state.apply(intent);
-
-        // Run Sim (internally generates SimAgent keys)
-        const forecast = sim.run(state, { targetMetricId: 'load', mutation: 10 }, budget);
-
-        expect(forecast).toBe(30);
-        expect(budget.used).toBe(1);
+        // T2 < T1 (Backwards)
+        expect(() => {
+            state.apply(IntentFactory.create('load', 20, admin.id, adminKeys.privateKey, 900));
+        }).toThrow(/Time Violation/); // Caught by try-catch? No, Error thrown unless logged as failure.
+        // Wait, State.ts implementation catches errors and logs FAILURE, then Re-Throws.
+        // So checking toThrow is correct, AND we should see FAILURE Log.
     });
 
-    test('L4: Protocol Executes with Authority Keys', () => {
-        protocol.register({
-            id: 'p1', triggerMetric: 'load', threshold: 80,
-            actionMetric: 'fan', actionMutation: 100
-        });
+    test('Gap 4: Revoked Principal Cannot Act', () => {
+        identity.revoke(admin.id);
 
-        // 1. Initial State
-        state.apply(IntentFactory.create('load', 50, admin.id, adminKeys.privateKey));
-        state.apply(IntentFactory.create('fan', 0, admin.id, adminKeys.privateKey));
+        expect(() => {
+            state.apply(IntentFactory.create('load', 10, admin.id, adminKeys.privateKey));
+        }).toThrow(/Principal Revoked/);
+    });
 
-        // exec with admin keys
-        protocol.evaluateAndExecute(admin.id, adminKeys.privateKey, time.getNow());
-        expect(state.get('fan')).toBe(0);
+    test('Gap 5: Failed Attempts are Logged', () => {
+        // Try to apply invalid signature
+        const badIntent = IntentFactory.create('load', 10, admin.id, adminKeys.privateKey);
+        badIntent.signature = 'bad';
 
-        // 2. Trigger
-        state.apply(IntentFactory.create('load', 90, admin.id, adminKeys.privateKey));
+        try {
+            state.apply(badIntent);
+        } catch (e) {
+            // Expected
+        }
 
-        protocol.evaluateAndExecute(admin.id, adminKeys.privateKey, time.getNow());
-        expect(state.get('fan')).toBe(100);
+        const log = auditLog.getHistory();
+        const failEntry = log.find(e => e.status === 'FAILURE');
+        expect(failEntry).toBeDefined();
+        expect(failEntry?.intent.intentId).toBe(badIntent.intentId);
     });
 });

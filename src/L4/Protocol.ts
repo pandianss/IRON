@@ -21,24 +21,40 @@ export class ProtocolEngine {
 
     register(p: Protocol) { this.protocols.set(p.id, p); }
 
-    // Execution now requires cryptographic authority (PrivateKey)
     evaluateAndExecute(authority: PrincipalId, privateKey: Ed25519PrivateKey, time: LogicalTimestamp) {
+        // Gap 2: Conflict Detection
+        // 1. Collect all triggered protocols
+        const triggered: Protocol[] = [];
+
         for (const p of this.protocols.values()) {
             const val = Number(this.state.get(p.triggerMetric));
             if (!isNaN(val) && val > p.threshold) {
-                // Execute
-                const current = Number(this.state.get(p.actionMetric) || 0);
-                const newVal = current + p.actionMutation;
-
-                const intent = IntentFactory.create(
-                    p.actionMetric,
-                    newVal,
-                    authority,
-                    privateKey
-                );
-
-                this.state.apply(intent);
+                triggered.push(p);
             }
+        }
+
+        // 2. Check for conflicts (Same Action Metric)
+        const targets = new Set<string>();
+        for (const p of triggered) {
+            if (targets.has(p.actionMetric)) {
+                throw new Error(`Protocol Conflict: Multiple protocols targeting ${p.actionMetric}`);
+            }
+            targets.add(p.actionMetric);
+        }
+
+        // 3. Execute Non-Conflicting Checks
+        for (const p of triggered) {
+            const current = Number(this.state.get(p.actionMetric) || 0);
+            const newVal = current + p.actionMutation;
+
+            const intent = IntentFactory.create(
+                p.actionMetric,
+                newVal,
+                authority,
+                privateKey
+            );
+
+            this.state.apply(intent);
         }
     }
 }

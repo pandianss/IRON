@@ -9,20 +9,22 @@ export interface LogEntry {
     hash: string;
     previousHash: string;
     intent: Intent; // Was Evidence
+    status: 'SUCCESS' | 'FAILURE'; // Gap 5
 }
 
 export class AuditLog {
     private chain: LogEntry[] = [];
     private genesisHash = '0000000000000000000000000000000000000000000000000000000000000000';
 
-    public append(intent: Intent): LogEntry {
+    public append(intent: Intent, status: 'SUCCESS' | 'FAILURE' = 'SUCCESS'): LogEntry {
         const previousHash = this.chain.length > 0 ? this.chain[this.chain.length - 1].hash : this.genesisHash;
-        const entryHash = this.calculateHash(previousHash, intent);
+        const entryHash = this.calculateHash(previousHash, intent, status);
 
         const entry: LogEntry = {
             hash: entryHash,
             previousHash: previousHash,
-            intent: intent
+            intent: intent,
+            status: status
         };
 
         this.chain.push(entry);
@@ -31,8 +33,8 @@ export class AuditLog {
 
     public getHistory(): LogEntry[] { return [...this.chain]; }
 
-    private calculateHash(prevHash: string, intent: Intent): string {
-        const data = prevHash + JSON.stringify(intent);
+    private calculateHash(prevHash: string, intent: Intent, status: string): string {
+        const data = prevHash + JSON.stringify(intent) + status;
         return hash(data);
     }
 }
