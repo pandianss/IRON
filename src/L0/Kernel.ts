@@ -1,14 +1,6 @@
 
+// src/L0/Kernel.ts
 import { createHash } from 'crypto';
-
-// --- Identity ---
-export type PrincipalId = string; // DID or UUID
-export type Signature = string;
-
-export interface Principal {
-    id: PrincipalId;
-    publicKey: string;
-}
 
 // --- Time ---
 export interface TimeSource {
@@ -52,7 +44,6 @@ export class DeterministicTime {
         } else if (currentWall === this.lastTime) {
             this.logicalTick++;
         } else {
-            // Clock moved backwards, freeze logical time forward by incrementing tick relative to lastTime
             this.logicalTick++;
         }
 
@@ -83,62 +74,23 @@ export class InvariantEngine {
     }
 }
 
-// --- Evidence ---
-export interface Evidence<T = any> {
-    payload: T;
-    signatory: PrincipalId;
-    signature: Signature;
-    timestamp: string; // LogicalTimestamp string
+// --- Budgets ---
+export enum BudgetType {
+    ENERGY = 'ENERGY',
+    ATTENTION = 'ATTENTION',
+    RISK = 'RISK'
 }
 
-// --- Ledger ---
-export interface LedgerEntry {
-    hash: string;
-    previousHash: string;
-    evidence: Evidence;
-}
+export class Budget {
+    constructor(public type: BudgetType, public limit: number, public used: number = 0) { }
 
-export class AuditLedger {
-    private chain: LedgerEntry[] = [];
-    private genesisHash = '0000000000000000000000000000000000000000000000000000000000000000';
-
-    constructor() { }
-
-    public append(evidence: Evidence): LedgerEntry {
-        const previousHash = this.chain.length > 0 ? this.chain[this.chain.length - 1].hash : this.genesisHash;
-        const hash = this.calculateHash(previousHash, evidence);
-
-        const entry: LedgerEntry = {
-            hash,
-            previousHash,
-            evidence
-        };
-
-        this.chain.push(entry);
-        return entry;
-    }
-
-    public getHistory(): LedgerEntry[] {
-        return [...this.chain]; // Return copy to preserve apparent immutability
-    }
-
-    public verifyIntegrity(): boolean {
-        for (let i = 0; i < this.chain.length; i++) {
-            const entry = this.chain[i];
-            const prevHash = i === 0 ? this.genesisHash : this.chain[i - 1].hash;
-
-            // 1. Check Link
-            if (entry.previousHash !== prevHash) return false;
-
-            // 2. Check Hash
-            const calculated = this.calculateHash(prevHash, entry.evidence);
-            if (entry.hash !== calculated) return false;
-        }
+    public consume(amount: number): boolean {
+        if (this.used + amount > this.limit) return false;
+        this.used += amount;
         return true;
     }
 
-    private calculateHash(prevHash: string, evidence: Evidence): string {
-        const data = prevHash + JSON.stringify(evidence);
-        return createHash('sha256').update(data).digest('hex');
+    public reset(): void {
+        this.used = 0;
     }
 }
