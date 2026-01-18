@@ -1,0 +1,78 @@
+{
+    "bundleId": "8f6c9d2a1e7b0c4e91b3a77e5a2d6f09c3e2a1b9f0d8c6e5a4b3c2d1e0f9a8",
+    "libraryName": "iron.individual.core",
+    "version": "1.0.0",
+    "owner": {
+        "publicKey": "ed25519:aa71c0f9e4d31a0a9b5f9c7d4a2e6f1b8c3d7e9a0f2b4c6d8e1a5b9f3",
+        "scope": "self"
+    },
+    "protocols": [
+        {
+            "name": "IntentDeclaration",
+            "version": "1.0.0",
+            "category": "Intent",
+            "scope": {
+                "actors": [
+                    "self"
+                ]
+            },
+            "preconditions": [
+                "intent.signed == true",
+                "now < intent.expiresAt"
+            ],
+            "execution": [
+                "registerIntent(intent)"
+            ],
+            "budgets": [
+                {
+                    "type": "authority",
+                    "limit": 1
+                }
+            ],
+            "accountability": {
+                "mode": "self",
+                "severityOnViolation": "warn"
+            },
+            "revocation": {
+                "allowedBy": [
+                    "self"
+                ],
+                "propagates": false
+            }
+        },
+        {
+            "name": "DailyFocusWindow",
+            "version": "1.0.0",
+            "category": "Habit",
+            "scope": {
+                "actors": [
+                    "self"
+                ]
+            },
+            "preconditions": [
+                "intent.type == 'focus'"
+            ],
+            "execution": [
+                "allowExecutionBetween('09:00','18:00')"
+            ],
+            "budgets": [
+                {
+                    "type": "attention",
+                    "limit": "4h"
+                }
+            ],
+            "accountability": {
+                "mode": "self",
+                "severityOnViolation": "info"
+            },
+            "revocation": {
+                "allowedBy": [
+                    "self"
+                ],
+                "propagates": false
+            }
+        }
+    ],
+    "createdAt": "2026-01-18T00:00:00Z",
+    "signature": "ed25519:4e9a2c7d0f1b8a5e6c3d9f4b2a7c8d5e1f0a6b3c9d8e7a2f4b1"
+}

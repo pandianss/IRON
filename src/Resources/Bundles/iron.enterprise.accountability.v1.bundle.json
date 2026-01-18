@@ -1,0 +1,46 @@
+{
+    "bundleId": "e9b3a7d5c1f8e2a6b0d9c4f7e5a3b1d8c6",
+    "libraryName": "iron.enterprise.accountability",
+    "version": "1.0.0",
+    "owner": {
+        "publicKey": "ed25519:dd4b9e6a2f1d7c8e3b5a0f9c4d1e6a7b8",
+        "scope": "org.audit"
+    },
+    "protocols": [
+        {
+            "name": "ViolationEscalation",
+            "version": "1.0.0",
+            "category": "Accountability",
+            "scope": {
+                "actors": [
+                    "org.audit"
+                ]
+            },
+            "preconditions": [
+                "violation.severity == 'critical'"
+            ],
+            "execution": [
+                "freezeIdentity(violation.actor)",
+                "notifyAuditor()"
+            ],
+            "budgets": [
+                {
+                    "type": "authority",
+                    "limit": 1
+                }
+            ],
+            "accountability": {
+                "mode": "org",
+                "severityOnViolation": "critical"
+            },
+            "revocation": {
+                "allowedBy": [
+                    "org.root"
+                ],
+                "propagates": false
+            }
+        }
+    ],
+    "createdAt": "2026-01-18T00:00:00Z",
+    "signature": "ed25519:7b5e3d9f2a1c8b6e4d0f9a7c5b3e1"
+}

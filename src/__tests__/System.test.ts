@@ -5,7 +5,7 @@ import { IdentityManager, Principal, DelegationEngine, Delegation } from '../L1/
 import { StateModel, MetricRegistry, MetricType } from '../L2/State';
 import { IntentFactory } from '../L2/IntentFactory';
 import { SimulationEngine } from '../L3/Sim';
-import { ProtocolEngine } from '../L4/Protocol';
+import { ProtocolEngine, Protocol } from '../L4/Protocol'; // Imported Protocol
 import { AuditLog } from '../L5/Audit';
 import { GovernanceInterface } from '../L6/Interface';
 import { GovernanceKernel } from '../Kernel';
@@ -59,7 +59,6 @@ describe('Iron. Operationalization (Kernel & Guards)', () => {
         expect(history[0].status).toBe('ATTEMPT');
         expect(history[1].status).toBe('SUCCESS');
 
-        // Verify State
         expect(state.get('load')).toBe(50);
     });
 
@@ -68,11 +67,6 @@ describe('Iron. Operationalization (Kernel & Guards)', () => {
         intent.signature = 'bad';
 
         expect(() => kernel.execute(intent)).toThrow(/Kernel Reject: Invalid Signature/);
-
-        // Verify no ATTEMPT logged for basic Guard rejection (filtered at gate)
-        // Or strictly filtered? 12-Step says "Log ATTEMPT" is Step 5 or 8.
-        // My Kernel Impl logs ATTEMPT at Step 6, AFTER Guards.
-        // So no log expected.
         expect(auditLog.getHistory().length).toBe(0);
     });
 
@@ -81,16 +75,39 @@ describe('Iron. Operationalization (Kernel & Guards)', () => {
         const user = { id: 'user', publicKey: userKeys.publicKey, type: 'INDIVIDUAL' as 'INDIVIDUAL', validFrom: 0, validUntil: 999 };
         identity.register(user);
 
-        // User has no delegation
         const intent = IntentFactory.create('load', 50, user.id, userKeys.privateKey);
 
         expect(() => kernel.execute(intent)).toThrow(/Scope Violation/);
     });
 
+    test('Protocol Conflict Rejection (Gap 2) - New Schema', () => {
+        // Register P1: Controls 'fan'
+        const p1: Protocol = {
+            id: 'fan-control-1', name: 'FanControl1', category: 'Intent',
+            preconditions: [{ type: 'METRIC_THRESHOLD', metricId: 'load', operator: '>', value: 80 }],
+            execution: [{ type: 'MUTATE_METRIC', metricId: 'fan', mutation: 1 }]
+        };
+        protocol.register(p1);
+
+        // Register P2: Controls 'fan' (Conflict)
+        const p2: Protocol = {
+            id: 'fan-control-2', name: 'FanControl2', category: 'Intent',
+            preconditions: [{ type: 'METRIC_THRESHOLD', metricId: 'load', operator: '>', value: 80 }],
+            execution: [{ type: 'MUTATE_METRIC', metricId: 'fan', mutation: 5 }]
+        };
+        protocol.register(p2);
+
+        // Set Load > 80 to trigger both
+        state.apply(IntentFactory.create('load', 90, admin.id, adminKeys.privateKey));
+
+        // Execute Protocols
+        expect(() => {
+            protocol.evaluateAndExecute(admin.id, adminKeys.privateKey, time.getNow());
+        }).toThrow(/Protocol Conflict/);
+    });
+
     test('Chaos Fuzzer Run', async () => {
         const fuzzer = new Fuzzer(kernel, identity);
         await fuzzer.run(10);
-        // Just ensuring it doesn't crash the test runner.
-        // Assertions are inside Fuzzer matchers.
     });
 });

@@ -1,0 +1,46 @@
+{
+    "bundleId": "5f7e9a3d8c1b2e0a4d6f9e7c5b3a1e8f0d2c4a9b7d6",
+    "libraryName": "iron.enterprise.operations",
+    "version": "1.0.0",
+    "owner": {
+        "publicKey": "ed25519:cc91f0d7e5a3b8c4d2e6f9a1b7c0d5e8f3a4b9",
+        "scope": "org.ops"
+    },
+    "protocols": [
+        {
+            "name": "DualApprovalAction",
+            "version": "1.0.0",
+            "category": "Intent",
+            "scope": {
+                "actors": [
+                    "team.member"
+                ]
+            },
+            "preconditions": [
+                "approvals.count >= 2",
+                "approvals.distinctActors == true"
+            ],
+            "execution": [
+                "permitExecution()"
+            ],
+            "budgets": [
+                {
+                    "type": "authority",
+                    "limit": 1
+                }
+            ],
+            "accountability": {
+                "mode": "peer",
+                "severityOnViolation": "critical"
+            },
+            "revocation": {
+                "allowedBy": [
+                    "org.root"
+                ],
+                "propagates": false
+            }
+        }
+    ],
+    "createdAt": "2026-01-18T00:00:00Z",
+    "signature": "ed25519:0a5e7c9f6d4b8a3e2c1f9b5d7e6a8c0f4b2"
+}

@@ -1,0 +1,46 @@
+{
+    "bundleId": "1a9c3e7b5d4f8c0e2b6a9d1f7e3c4b5a8f0d2c6e9a1b7d3f4e5c8",
+    "libraryName": "iron.enterprise.foundation",
+    "version": "1.0.0",
+    "owner": {
+        "publicKey": "ed25519:bb12d9e7c0a1f5e3b8d6c4a2f9e7d1b3c5a6e8f0d4c9b1a7",
+        "scope": "org.root"
+    },
+    "protocols": [
+        {
+            "name": "AuthorityDelegation",
+            "version": "1.0.0",
+            "category": "Authority",
+            "scope": {
+                "actors": [
+                    "org.root",
+                    "org.unit"
+                ]
+            },
+            "preconditions": [
+                "delegate.scope ⊆ delegator.scope"
+            ],
+            "execution": [
+                "registerDelegation(delegator, delegate)"
+            ],
+            "budgets": [
+                {
+                    "type": "authority",
+                    "limit": 10
+                }
+            ],
+            "accountability": {
+                "mode": "org",
+                "severityOnViolation": "critical"
+            },
+            "revocation": {
+                "allowedBy": [
+                    "org.root"
+                ],
+                "propagates": true
+            }
+        }
+    ],
+    "createdAt": "2026-01-18T00:00:00Z",
+    "signature": "ed25519:9c7e1f4a2b5d6e3c8a0f9b7d4e1a6c5f3d8b2e9a0"
+}
