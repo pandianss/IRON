@@ -9,6 +9,7 @@ export interface Evidence {
     action: Action; // LinkedAction
     status: 'SUCCESS' | 'FAILURE' | 'ATTEMPT' | 'REJECT' | 'ABORTED';
     reason?: string;
+    metadata?: Record<string, any>; // Structured diagnostics (Product 2)
     timestamp: number; // For temporal audit
 }
 
@@ -16,7 +17,12 @@ export class AuditLog {
     private chain: Evidence[] = [];
     private genesisHash = '0000000000000000000000000000000000000000000000000000000000000000';
 
-    public append(action: Action, status: 'SUCCESS' | 'FAILURE' | 'ATTEMPT' | 'REJECT' | 'ABORTED' = 'SUCCESS', reason?: string): Evidence {
+    public append(
+        action: Action,
+        status: 'SUCCESS' | 'FAILURE' | 'ATTEMPT' | 'REJECT' | 'ABORTED' = 'SUCCESS',
+        reason?: string,
+        metadata?: Record<string, any>
+    ): Evidence {
         const previousHash = this.chain.length > 0 ? this.chain[this.chain.length - 1]!.evidenceId : this.genesisHash;
         const lastTs = this.chain.length > 0 ? this.chain[this.chain.length - 1]!.timestamp : 0;
         const now = Date.now();
@@ -26,7 +32,7 @@ export class AuditLog {
             throw new Error("Audit Violation: Temporal integrity breached (Time moved backwards)");
         }
 
-        const entryHash = this.calculateHash(previousHash, action, status, now, reason);
+        const entryHash = this.calculateHash(previousHash, action, status, now, reason, metadata);
 
         const evidence: Evidence = {
             evidenceId: entryHash,
@@ -34,7 +40,8 @@ export class AuditLog {
             action: action,
             status: status,
             timestamp: now,
-            ...(reason ? { reason } : {})
+            ...(reason ? { reason } : {}),
+            ...(metadata ? { metadata } : {})
         };
 
         this.chain.push(evidence);
@@ -53,7 +60,7 @@ export class AuditLog {
             if (entry.previousEvidenceId !== prev) return false;
 
             // 2. Hash Check
-            const h = this.calculateHash(prev, entry.action, entry.status, entry.timestamp, entry.reason);
+            const h = this.calculateHash(prev, entry.action, entry.status, entry.timestamp, entry.reason, entry.metadata);
             if (h !== entry.evidenceId) return false;
 
             // 3. Time Check
@@ -68,8 +75,8 @@ export class AuditLog {
     // Alias for compatibility
     public verifyIntegrity(): boolean { return this.verifyChain(); }
 
-    private calculateHash(prevHash: string, action: Action, status: string, timestamp: number, reason?: string): string {
-        const data = prevHash + JSON.stringify(action) + status + timestamp + (reason || '');
+    private calculateHash(prevHash: string, action: Action, status: string, timestamp: number, reason?: string, metadata?: any): string {
+        const data = prevHash + JSON.stringify(action) + status + timestamp + (reason || '') + JSON.stringify(metadata || {});
         return hash(data);
     }
 }

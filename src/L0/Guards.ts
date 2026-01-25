@@ -22,19 +22,27 @@ export const SignatureGuard: Guard<{ intent: Action, manager: IdentityManager }>
     if (e.status === 'REVOKED') return FAIL("Entity revoked");
 
     const data = `${intent.actionId}:${intent.initiator}:${JSON.stringify(intent.payload)}:${intent.timestamp}:${intent.expiresAt}`;
+
+    console.log(`[SignatureGuard] Data: ${data}`);
+    console.log(`[SignatureGuard] Sig: ${intent.signature}`);
+
     if (!verifySignature(data, intent.signature, e.publicKey)) return FAIL("Invalid Signature");
 
     return OK;
 };
 
 // 2. Scope (Authority & Jurisdiction)
-export const ScopeGuard: Guard<{ actor: string, capability: string, engine: AuthorityEngine }> =
-    ({ actor, capability, engine }) => {
-        if (!engine.authorized(actor, capability)) {
-            return FAIL(`Authority Violation: ${actor} lacks jurisdiction for ${capability}`);
-        }
-        return OK;
-    };
+export const ScopeGuard: Guard<{
+    actor: string,
+    capability: string,
+    engine: AuthorityEngine,
+    context?: { time?: string, value?: number }
+}> = ({ actor, capability, engine, context }) => {
+    if (!engine.authorized(actor, capability, context)) {
+        return FAIL(`Authority Violation: ${actor} lacks jurisdiction or satisfies limits for ${capability}`);
+    }
+    return OK;
+};
 
 // 3. Time (Monotonicity)
 export const TimeGuard: Guard<{ currentTs: string, lastTs: string }> = ({ currentTs, lastTs }) => {

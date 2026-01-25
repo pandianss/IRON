@@ -10,9 +10,10 @@ export class ActionFactory {
         initiator: string,
         privateKey: Ed25519PrivateKey,
         timestamp: string | number = Date.now(),
-        expiresAt: string | number = Date.now() + 60000 // 1 min validity
+        expiresAt: string | number = Date.now() + 60000,
+        protocolId: string = 'SYSTEM'
     ): Action {
-        const payload: ActionPayload = { metricId, value };
+        const payload: ActionPayload = { protocolId, metricId, value };
 
         // Construct canonical data string for Signing
         const payloadStr = JSON.stringify(payload);

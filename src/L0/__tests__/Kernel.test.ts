@@ -76,7 +76,7 @@ describe('L0 Governance Kernel', () => {
             const history = audit.getHistory();
 
             // Tamper with history
-            (history[0]!.intent.payload as any).value = 100;
+            (history[0]!.action.payload as any).value = 100;
 
             expect(audit.verifyIntegrity()).toBe(false);
         });

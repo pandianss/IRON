@@ -69,6 +69,9 @@ export interface Delegation {
     capacity: CapacityID;
     jurisdiction: JurisdictionID;
     timestamp: string;
+    expiresAt?: string | undefined; // Temporal Expiry (Product 1)
+    limits?: Record<string, number> | undefined; // Capacity-based Limits (Product 1)
+    status: 'ACTIVE' | 'REVOKED'; // Operational State (Product 1)
     signature: Signature;
 }
 
@@ -84,7 +87,9 @@ export class AuthorityEngine {
         capacityId: CapacityID,
         jurisdiction: JurisdictionID,
         timestamp: string,
-        signature: Signature
+        signature: Signature,
+        expiresAt?: string,
+        limits?: Record<string, number>
     ) {
         const granter = this.identityManager.get(granterId);
         const grantee = this.identityManager.get(granteeId);
@@ -94,7 +99,7 @@ export class AuthorityEngine {
 
         // Verify Signature
         if (signature !== 'GOVERNANCE_SIGNATURE') {
-            const data = `${granterId}:${granteeId}:${capacityId}:${jurisdiction}:${timestamp}`;
+            const data = `${granterId}:${granteeId}:${capacityId}:${jurisdiction}:${timestamp}:${expiresAt || ''}`;
             if (!verifySignature(data, signature, granter.publicKey)) {
                 throw new Error("Authority Error: Invalid Signature");
             }
@@ -107,8 +112,18 @@ export class AuthorityEngine {
             capacity: capacityId,
             jurisdiction,
             timestamp,
+            expiresAt,
+            limits,
+            status: 'ACTIVE',
             signature
         });
+    }
+
+    public revoke(authorityId: AuthorityID) {
+        const d = this.delegations.find(del => del.authorityId === authorityId);
+        if (d) {
+            d.status = 'REVOKED';
+        }
     }
 
     /**
@@ -129,23 +144,38 @@ export class AuthorityEngine {
 
     /**
      * Primitive Relation: Capacity permits Action
-     * For now, we use the string matching from previous version but renamed.
+     * Enforces Jurisdiction, Expiry, and Limits.
      */
-    public authorized(entityId: EntityID, check: string): boolean {
+    public authorized(entityId: EntityID, check: string, context?: { time?: string, value?: number }): boolean {
         const entity = this.identityManager.get(entityId);
         if (!entity || entity.status !== 'ACTIVE') return false;
         if (entity.isRoot) return true;
 
-        // Check format "ACTION:RESOURCE"
-        const resource = check.includes(':') ? check.split(':')[1]! : check;
+        const [actionType, resource] = check.includes(':') ? check.split(':') : [undefined, check];
+        const currentTime = context?.time;
+        const actionValue = context?.value;
 
         return this.delegations.some(d => {
-            if (d.grantee !== entityId) return false;
+            if (d.grantee !== entityId || d.status !== 'ACTIVE') return false;
 
-            // Jurisdiction match: Exact, Wildcard, or Hierarchical
-            return resource === d.jurisdiction ||
-                d.jurisdiction === '*' ||
-                resource.startsWith(d.jurisdiction + '.');
+            // 1. Temporal Expiry Check (Rule 1.1)
+            if (d.expiresAt && currentTime) {
+                const nowVal = BigInt(currentTime.includes(':') ? currentTime.split(':')[0]! : currentTime);
+                const expVal = BigInt(d.expiresAt.includes(':') ? d.expiresAt.split(':')[0]! : d.expiresAt);
+                if (nowVal > expVal) return false;
+            }
+
+            // 2. Jurisdiction match
+            const jMatch = (resource === d.jurisdiction || d.jurisdiction === '*' || resource?.startsWith(d.jurisdiction + '.'));
+            if (!jMatch) return false;
+
+            // 3. Capacity Limit Check (Rule 1.2)
+            if (d.limits && actionType && actionValue !== undefined) {
+                const limit = d.limits[actionType];
+                if (limit !== undefined && actionValue > limit) return false;
+            }
+
+            return true;
         });
     }
 }

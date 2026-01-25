@@ -7,6 +7,7 @@ import { LogicalTimestamp } from '../L0/Kernel.js';
 
 // --- Action ---
 export interface ActionPayload {
+    protocolId?: string;
     metricId: string;
     value: any;
 }

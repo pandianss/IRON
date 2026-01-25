@@ -13,6 +13,7 @@ export interface Protocol extends ProtocolPrimitive {
     version: string;
     category: ProtocolCategory;
     lifecycle: ProtocolLifecycle;
+    strict?: boolean; // If true, must satisfy rules or be REJECTED (Product 3)
 
 
     // Core Logic (Charter defined)

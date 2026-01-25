@@ -209,6 +209,9 @@ export class ProtocolEngine {
                 const thresh = Number(pre.value);
                 if (pre.operator === '>' && !(current > thresh)) return false;
                 if (pre.operator === '>=' && !(current >= thresh)) return false;
+                if (pre.operator === '<' && !(current < thresh)) return false;
+                if (pre.operator === '<=' && !(current <= thresh)) return false;
+                if (pre.operator === '==' && !(current === thresh)) return false;
             }
             if (pre.type === 'ALWAYS') return true;
         }

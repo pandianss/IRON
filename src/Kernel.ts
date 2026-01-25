@@ -134,17 +134,45 @@ export class GovernanceKernel {
 
         // 2. Authority Guard (Jurisdiction/Capacity check)
         const targetMetric = attempt.action.payload.metricId;
-        if (!this.authority.authorized(attempt.initiator, `METRIC.WRITE:${targetMetric}`)) {
-            const reason = `Authority Violation: ${attempt.initiator} lacks Jurisdiction over ${targetMetric}`;
-            this.reject(attempt, reason);
+        const context = {
+            time: attempt.action.timestamp,
+            value: attempt.action.payload.value as number
+        };
+
+        if (!this.authority.authorized(attempt.initiator, `METRIC.WRITE:${targetMetric}`, context)) {
+            const reason = `Authority Violation: ${attempt.initiator} lacks Jurisdiction or exceeds limits for ${targetMetric}`;
+            const metadata = {
+                initiator: attempt.initiator,
+                target: targetMetric,
+                context,
+                violationType: 'AUTHORITY_OVERSCOPE'
+            };
+            this.reject(attempt, reason, metadata);
             return { status: 'REJECTED', reason };
         }
 
-        // 3. Protocol Binding
-        if (!this.protocols.isRegistered(attempt.protocolId) && attempt.protocolId !== 'SYSTEM' && attempt.protocolId !== 'ROOT') {
-            const reason = "Protocol Binding Violation: Protocol not registered";
-            this.reject(attempt, reason);
-            return { status: 'REJECTED', reason };
+        // 3. Protocol Binding & Policy Enforcement (Product 3: Gate)
+        const isSystemAction = attempt.protocolId === 'SYSTEM' || attempt.protocolId === 'ROOT';
+
+        if (!isSystemAction) {
+            if (!this.protocols.isRegistered(attempt.protocolId)) {
+                const reason = "Protocol Binding Violation: Protocol not registered";
+                this.reject(attempt, reason);
+                return { status: 'REJECTED', reason };
+            }
+
+            // Pre-execution evaluation (The "Gate")
+            const mutations = this.protocols.evaluate(attempt.timestamp, {
+                metricId: attempt.action.payload.metricId,
+                value: attempt.action.payload.value
+            });
+
+            const protocol = this.protocols.get(attempt.protocolId);
+            if (protocol?.strict && mutations.length === 0) {
+                const reason = `Policy Violation: ${protocol.name} rejects this execution.`;
+                this.reject(attempt, reason, { protocolId: attempt.protocolId, violationType: 'POLICY_REJECTION' });
+                return { status: 'REJECTED', reason };
+            }
         }
 
         attempt.status = 'ACCEPTED';
@@ -232,6 +260,12 @@ export class GovernanceKernel {
         this.audit.append(this.createSystemAction(actor, 'system.authority', { granter, grantee, capacity, jurisdiction }), 'SUCCESS');
     }
 
+    public revokeAuthority(actor: EntityID, authorityId: string): void {
+        this.checkGovernanceAuth(actor, 'AUTHORITY.REVOKE');
+        this.authority.revoke(authorityId);
+        this.audit.append(this.createSystemAction(actor, 'system.revocation', { authorityId }), 'SUCCESS');
+    }
+
     public revokeEntity(actor: EntityID, targetId: EntityID): void {
         this.checkGovernanceAuth(actor, 'ENTITY.REVOKE');
         const timestamp = '0:0';
@@ -266,9 +300,18 @@ export class GovernanceKernel {
         return this.commitAttempt(aid, new Budget('RISK' as any, 1000));
     }
 
-    private reject(attempt: Attempt, reason: string) {
+    private reject(attempt: Attempt, reason: string, metadata?: Record<string, any>) {
         attempt.status = 'REJECTED';
-        this.audit.append(attempt.action, 'REJECT', reason);
+        this.audit.append(attempt.action, 'REJECT', reason, metadata);
+
+        // Automatic Revocation (Product 1 requirement)
+        // If a limit is breached, we pull ALL delegations for this entity on this metric (strict policy)
+        if (metadata?.violationType === 'AUTHORITY_OVERSCOPE') {
+            console.log(`[Iron] Breach Detected. Triggering Automatic Revocation for ${attempt.initiator}`);
+            // In a real system, we'd search for the specific delegation ID. 
+            // Here we'll treat it as a systemic lock on the entity for this target.
+            this.identity.revoke(attempt.initiator, '0:0');
+        }
     }
 
     private createSystemAction(initiator: EntityID, metric: string, value: any): Action {
@@ -284,7 +327,8 @@ export class GovernanceKernel {
 
     // Article V: Execution Entry (Legacy/Direct)
     public execute(action: Action, budget?: Budget): Commit {
-        const aid = this.submitAttempt(action.initiator, 'SYSTEM', action);
+        const protocolId = action.payload.protocolId || 'SYSTEM';
+        const aid = this.submitAttempt(action.initiator, protocolId, action);
         const guardStatus = this.guardAttempt(aid);
         if (guardStatus.status === 'REJECTED') {
             throw new Error(`Kernel Reject: ${guardStatus.reason}`);

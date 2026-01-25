@@ -1,5 +1,5 @@
 import { StateModel } from '../L2/State.js';
-import type { Action } from '../L2/State.js';
+import type { Action, ActionPayload } from '../L2/State.js';
 import { AuditLog } from '../L5/Audit.js';
 import { signData, hash } from '../L0/Crypto.js';
 import type { KeyPair } from '../L0/Crypto.js';
@@ -34,11 +34,46 @@ export class GovernanceInterface {
         const budget = new Budget(BudgetType.ENERGY, options.budgetLimit || 100);
         return this.kernel.execute(action, budget);
     }
+
+    /**
+     * Product 2: Governance Breach Monitor
+     * Extracts structured violation data from the Audit Log.
+     */
+    public getBreachReports() {
+        return this.log.getHistory()
+            .filter(e => e.status === 'REJECT' || e.status === 'ABORTED')
+            .map(e => ({
+                actionId: e.action.actionId,
+                initiator: e.action.initiator,
+                reason: e.reason,
+                metadata: e.metadata,
+                timestamp: e.timestamp
+            }));
+    }
+
+    /**
+     * Product 2: Incident Reconstruction
+     * Groups related evidence by context (e.g., metric, initiator).
+     */
+    public reconstructIncident(actionId: string) {
+        const history = this.log.getHistory();
+        const mainEntry = history.find(e => e.action.actionId === actionId);
+        if (!mainEntry) return null;
+
+        return {
+            incident: mainEntry,
+            timeline: history.filter(e =>
+                e.action.initiator === mainEntry.action.initiator &&
+                e.timestamp <= mainEntry.timestamp
+            ).slice(-5) // Last 5 steps leadings to breach
+        };
+    }
 }
 
 // --- VI.1 Consent Law (Action Builder) ---
 export class ActionBuilder {
     private initiator: EntityID = '';
+    private protocolId: string = 'SYSTEM';
     private metricId: string = '';
     private value: any = null;
     private expiresAt: string = '0:0';
@@ -49,6 +84,7 @@ export class ActionBuilder {
     constructor() { }
 
     public withInitiator(id: EntityID): this { this.initiator = id; return this; }
+    public withProtocol(id: string): this { this.protocolId = id; return this; }
     public withMetric(id: string): this { this.metricId = id; return this; }
     public withValue(val: any): this { this.value = val; return this; }
 
@@ -62,7 +98,7 @@ export class ActionBuilder {
         if (!this.initiator || !this.metricId) throw new Error("Incomplete Action");
 
         this.timestamp = `${Date.now()}:0`;
-        const payload = { metricId: this.metricId, value: this.value };
+        const payload: ActionPayload = { protocolId: this.protocolId, metricId: this.metricId, value: this.value };
 
         // Action ID = SHA256(Initiator + Payload + TS + Exp)
         const actionId = hash(`${this.initiator}:${JSON.stringify(payload)}:${this.timestamp}:${this.expiresAt}`);
