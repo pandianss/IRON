@@ -2,3 +2,48 @@ node_modules
 dist
 .gemini
 coverage
+
+# ============================================
+# IRON Kernel Security (Phase 0)
+# ============================================
+
+# State & Audit (CRITICAL - Never commit)
+/state/*
+/audit/*
+/ledger/*
+!**/.gitkeep
+
+# Cryptographic Material (CRITICAL - Never commit)
+*.key
+*.sig
+*.proof
+*.pem
+/keys/*
+/certs/*
+
+# Protocol Bundles
+/protocols/build/*
+/protocols/signed/*
+*.bundle
+
+# Local Development
+.env.local
+.env.*.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
