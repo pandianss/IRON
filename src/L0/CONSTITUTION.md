@@ -1,51 +1,246 @@
-# IRON-5 CONSTITUTION
+# IRON KERNEL BOUNDARY CHARTER
 
-## Preamble
-We, the Operators of this Kernel, in order to form a more perfect Physics, establish Justice, ensure Domestic Tranquility, provide for the Common Defense, promote the General Welfare, and secure the Blessings of Determinism to ourselves and our Posterity, do ordain and establish this Constitution for the Iron Governance Kernel.
+Version 1.0 (Foundational Charter)
+Status: Constitutional
+Scope: Non-negotiable
 
-## Article I. Purpose
+## Article I — Purpose of the Kernel
 
-**The Kernel Purpose Clause:**
+The IRON Kernel exists solely to provide a deterministic governance runtime.
 
-> "The purpose of the Iron Kernel is to maintain the **Invariance of Institutional State** through deterministic enforcement of Authority, Budget, and History. Its jurisdiction is limited strictly to the validation of Intents and the mutation of State. It shall never govern User Interface, Workflow Business Logic, or External Integrations, which belong to the domain of the Application Layer (L7)."
+Its exclusive purpose is to:
 
-## Article II. Jurisdiction
+enforce, validate, and record institutional state transitions arising from authorized actors executing governed protocols under declared authority, obligations, and constraints.
 
-The Kernel holds supreme authority over:
-1.  **Identity**: Who is recognized.
-2.  **Authority**: What they are allowed to do.
-3.  **State**: What is true.
-4.  **History**: What happened.
+The kernel is not a product, platform, workflow system, business engine, or analytics system.
 
-The Kernel disavows authority over:
-1.  **Presentation**: How truth is displayed.
-2.  **Interpretation**: What truth means to a human (unless codified in Law).
-3.  **Suggestion**: What user should do next (Workflows).
+It is a governance substrate.
 
-## Article III. The Frozen Core
+## Article II — What the Kernel Is
 
-The definitions in `src/L0/Ontology.ts` are the **Supreme Nouns** of the system. No module shall introduce a primitive concept that conflicts with or duplicates these Nouns.
+The kernel is the minimum irreducible system required to:
 
-## Article IV. Sovereignty of Time
-The Audit Log is the only source of History. History is monotonic; time shall never move backwards. Every state change must be cryptographically linked to its predecessor.
+1. Represent institutional reality as governed state.
+2. Resolve identity, authority, and mandate.
+3. Validate whether an attempted action is permitted.
+4. Execute protocols as state machines.
+5. Enforce invariants and sanctions.
+6. Produce non-repudiable institutional truth.
 
-## Article V. Emergency Power (Root Override)
-In the event of a Logical Deadlock where the machine's laws prevent a necessary movement of state, the Root Authority (`sys:root`) may exert an **Override**. This bypasses Protocol Law but remains bound by the Laws of Physics (Identity, Budget, Consensus). Every Override must be accompanied by a permanent Justification in the Audit Log.
+Nothing else belongs in the kernel.
 
-## Article VI. Foreign Relations
-The Kernel is Sovereign within its own domain. It shall not accept assertions from Foreign Kernels unless a formal Treaty (Trusted Public Key) has been ratified. Foreign assertions shall be clearly marked as "Imported" in the State.
+## Article III — Kernel Responsibilities (Positive Scope)
 
-## Article VII. Fiscal Law
-Budget is not a suggestion; it is a resource constraint equivalent to Physics. No Intent shall be committed if the required Budget (Energy/Risk) is unavailable. The Kernel shall never allow an "Infinite Execution".
+The kernel SHALL contain only the following domains:
 
-## Article VIII. Legislative Process
-Code is Law. New laws (Protocols) must follow the lifecycle: `PROPOSED` -> `RATIFIED` -> `ACTIVE`. A Law once `REVOKED` is dead and cannot be resurrected.
+### 1. Identity & Entity Resolution
+- Actors (human, institutional, autonomous)
+- Roles and offices
+- Assets and governed objects
+- Cryptographic identity and signing
+- Delegation and revocation
+- **Kernel outputs**: “Who is this?”, “In what capacity are they acting?”
 
-## Article IX. Expansion Prohibition (Feature Lock)
-The Iron-5 Kernel is hereby declared **Feature Complete**. No further functional expansions to the Kernel Core are permitted. All future logic must be implemented as unprivileged Protocols (L4) or Application Logic (L7). The "Constitutional Boundary" is now closed.
+### 2. Authority Graph & Mandate Engine
+- Authority relationships
+- Jurisdiction boundaries
+- Powers, duties, prohibitions
+- Conditional mandates
+- Temporary and emergency powers
+- **Kernel outputs**: “Is this actor empowered to attempt this act?”, “Under what authority is this action being invoked?”
 
-## Article X. Finality
-This document and the associated code in `src/L0` through `src/L6` constitute the complete and final architecture of the Iron Governance Kernel. 
+### 3. Governed State Model
+- Canonical state representations
+- Immutable state transition records
+- Versioned institutional memory
+- Truth resolution mechanisms
+- Historical reconstruction capability
+- **Kernel outputs**: “What is the official state of reality?”, “How did it reach this state?”
 
-**Date of Closure**: 2026-01-25
-**Version**: 5.0.0 (FINAL)
+### 4. Protocol Execution Engine
+- Protocol definitions as state machines
+- Trigger resolution
+- Precondition validation
+- Action authorization
+- Consequence dispatch
+- **Kernel outputs**: “Which protocol applies?”, “Is the protocol execution valid?”, “What transitions must occur?”
+
+### 5. Invariant & Law Enforcement Engine
+- Hard invariants (never violated)
+- Soft invariants (violation-recording)
+- Constraint evaluation
+- Sanction triggers
+- Emergency override handling
+- **Kernel outputs**: “Does this violate institutional law?”, “What enforcement must occur?”
+
+### 6. Institutional Ledger & Evidence System
+- Non-repudiable action logs
+- Authority trails
+- Protocol traces
+- Violation and override records
+- Cryptographically verifiable history
+- **Kernel outputs**: “What is provably true?”, “Who caused what, when, and under which mandate?”
+
+## Article IV — What the Kernel Is Not (Negative Scope)
+
+The kernel SHALL NOT contain:
+- Business workflows
+- Domain rules (banking, HR, compliance, education, etc.)
+- UI logic or presentation models
+- Analytics, KPIs, or dashboards
+- Optimization logic
+- Notification systems
+- Scheduling engines
+- Recommendation engines
+- AI/ML models
+- Data visualization
+- Product-specific policies
+- Organizational heuristics
+
+The kernel does not “help,” “suggest,” “optimize,” “coach,” or “manage.”
+It permits, forbids, records, and enforces.
+
+## Article V — Kernel Interfaces
+
+The kernel exposes only constitutional interfaces:
+- **Identity Interface**: Resolve actor, Assert capacity, Validate delegation
+- **Authority Interface**: Verify mandate, Test jurisdiction, Evaluate prohibitions
+- **Protocol Interface**: Register protocol, Invoke protocol, Query protocol state
+- **Law Interface**: Register invariants, Evaluate compliance, Trigger enforcement
+- **State Interface**: Read governed state, Propose transition, Commit validated transition
+- **Evidence Interface**: Retrieve trace, Generate proof, Reconstruct history
+
+No interface may expose business abstractions, product assumptions, or user experience concerns.
+
+## Article VI — Kernel Design Principles
+
+The kernel SHALL be:
+- **Minimal** – fewer primitives, not more features
+- **Deterministic** – same input, same institutional outcome
+- **Composable** – all higher behavior emerges from protocols
+- **Hostile-environment safe** – assumes malicious actors
+- **Audit-first** – truth generation precedes convenience
+- **Product-agnostic** – no vertical knowledge
+- **Politically neutral** – enforces declared law only
+
+## Article VII — Product Separation Doctrine
+
+All products (IRON Control, IRON Command, IRON Audit, IRON Discipline, etc.) exist entirely outside the kernel.
+They may:
+- define protocols
+- register laws
+- interpret state
+- visualize consequences
+- guide users
+
+They may not:
+- bypass authority resolution
+- directly mutate governed state
+- suppress evidence
+- override invariants
+- embed enforcement logic
+
+All power flows only through the kernel.
+
+## Article VIII — Change Control Law
+
+Any proposed kernel change must:
+1. Identify which core responsibility it strengthens.
+2. Demonstrate impossibility at the product layer.
+3. Prove minimality.
+4. Preserve backward constitutional compatibility.
+5. Be justified as governance infrastructure, not convenience.
+
+Any feature whose removal does not collapse governance capability SHALL be removed.
+
+## Article IX — Kernel Completion Criterion
+
+The kernel SHALL be considered foundationally complete when:
+- no new core primitives are being added
+- all new capabilities emerge via protocols
+- all products compile into existing kernel operations
+- the kernel can remain frozen while products evolve
+
+## Article X — Foundational Statement
+
+The IRON Kernel is not built to serve products.
+Products are built to prove the kernel.
+The kernel exists to make authority executable, obligation enforceable, and truth institutional.
+
+---
+
+# IRON KERNEL PRIMITIVE SET
+
+Version 1.0 — Foundational
+Status: Constitutional / Non-Negotiable
+
+## Part I — Foundational Ontology
+
+### 1. Entity
+An Entity is any identifiable subject or object that can participate in governance.
+- **Attributes**: EntityID, EntityType (Actor|Office|Asset|System|Abstract), IdentityProof, Status.
+
+### 2. Identity
+Identity is the binding between an Entity and its verifiable existence.
+- **Properties**: PublicKey, VerificationMethod, ValidityWindow, DelegationChain.
+
+### 3. Capacity
+A Capacity is the role or office in which an Entity is acting.
+- **Properties**: CapacityID, HeldBy EntityID, ConferredBy AuthorityID, Scope, Validity, RevocationConditions.
+
+### 4. Authority
+Authority is a primitive relation defining power, jurisdiction, and mandate.
+- **Properties**: AuthorityID, Source, Grants Capacities, Permits Actions, Imposes Obligations, BoundedBy Jurisdiction.
+
+### 5. Jurisdiction
+Jurisdiction defines the boundary within which authority is valid (entities, assets, time, space).
+- **Properties**: JurisdictionID, ScopeDefinition, InclusionRules, ExclusionRules, TemporalBoundaries.
+
+### 6. Governed State
+Canonical institutional memory.
+- **Properties**: StateID, StateSchema, CurrentValue, Version, DerivationHistory.
+
+### 7. Protocol
+Formal state machine defining valid institutional transitions.
+- **Properties**: ProtocolID, TriggerConditions, Preconditions, AuthorizedCapacities, StateTransitions, CompletionConditions.
+
+### 8. Action
+A signed attempt to invoke a protocol.
+- **Properties**: ActionID, Initiator EntityID, InvokedCapacity, ProtocolReference, DeclaredIntent, Timestamp, Signature.
+
+### 9. Invariant
+A non-negotiable law over governed state.
+- **Properties**: InvariantID, Predicate, Scope, Severity, EnforcementDirective.
+
+### 10. Sanction
+A mandatory consequence produced by the kernel.
+- **Properties**: SanctionID, Trigger, Target, Effect, ExecutionMode.
+
+### 11. Override
+A formally authorized law breach.
+- **Properties**: OverrideID, AuthorizingAuthority, Scope, JustificationRecord, AuditObligation.
+
+### 12. Evidence
+The institutional truth substrate.
+- **Properties**: EvidenceID, LinkedAction, AuthorityTrace, ProtocolTrace, StateDiff, ImmutabilityProof.
+
+## Part II — Primitive Relations
+- Entity holds Capacity
+- Authority confers Capacity
+- Capacity permits Action
+- Action invokes Protocol
+- Protocol transitions Governed State
+- Invariant constrains State
+- Violation triggers Sanction
+- Override authorizes Violation
+- Evidence attests everything
+
+## Part III — Kernel Services
+1. Identity Resolution Service
+2. Authority & Jurisdiction Engine
+3. Protocol Execution Engine
+4. State Transition Engine
+5. Law & Invariant Engine
+6. Sanction Dispatcher
+7. Evidence & Ledger Engine
+8. Kernel Integrity Service

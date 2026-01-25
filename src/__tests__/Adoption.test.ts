@@ -1,20 +1,18 @@
 import { LogicalTimestamp } from '../L0/Kernel.js';
 import { generateKeyPair, signData, hash } from '../L0/Crypto.js';
 import type { KeyPair } from '../L0/Crypto.js';
-import { IdentityManager } from '../L1/Identity.js';
-import type { Principal } from '../L1/Identity.js';
+import { IdentityManager, AuthorityEngine } from '../L1/Identity.js';
 import { StateModel, MetricRegistry, MetricType } from '../L2/State.js';
 import { ProtocolEngine } from '../L4/Protocol.js';
 import type { ProtocolBundle, Protocol } from '../L4/Protocol.js';
 import { AuditLog } from '../L5/Audit.js';
-import { IntentFactory } from '../L2/IntentFactory.js';
+import { ActionFactory } from '../L2/ActionFactory.js';
 import { GovernanceKernel } from '../Kernel.js';
-import { CapabilitySet, DelegationEngine } from '../L1/Identity.js';
 import { DeterministicTime } from '../L0/Kernel.js';
 
-describe('Iron. Canonical Protocol Bundles', () => {
+describe('Iron Canonical Protocol Bundles', () => {
     let identity: IdentityManager;
-    let delegation: DelegationEngine;
+    let authority: AuthorityEngine;
     let state: StateModel;
     let protocol: ProtocolEngine;
     let auditLog: AuditLog;
@@ -30,14 +28,14 @@ describe('Iron. Canonical Protocol Bundles', () => {
         identity.register({
             id: 'self',
             publicKey: adminKeys.publicKey,
-            type: 'INDIVIDUAL',
-            scopeOf: new CapabilitySet(['*']),
-            parents: [],
+            type: 'ACTOR',
+            identityProof: 'SYSTEM_GENESIS',
+            status: 'ACTIVE',
             createdAt: '0:0',
             isRoot: true
         });
 
-        delegation = new DelegationEngine(identity);
+        authority = new AuthorityEngine(identity);
         auditLog = new AuditLog();
         registry = new MetricRegistry();
         state = new StateModel(auditLog, registry, identity);
@@ -46,8 +44,10 @@ describe('Iron. Canonical Protocol Bundles', () => {
         registry.register({ id: 'recovery', description: '', type: MetricType.GAUGE });
 
         protocol = new ProtocolEngine(state);
-        kernel = new GovernanceKernel(identity, delegation, state, protocol, auditLog, registry);
+        kernel = new GovernanceKernel(identity, authority, state, protocol, auditLog, registry);
+        kernel.boot();
     });
+
 
     function sortObject(obj: any): any {
         if (obj === null || typeof obj !== 'object') return obj;
@@ -70,90 +70,103 @@ describe('Iron. Canonical Protocol Bundles', () => {
             ...bundle,
             bundleId,
             signature: `ed25519:${signature}`
-        };
+        } as ProtocolBundle;
     }
 
     test('Rule 1 & 2: Load Valid Signed Bundle', () => {
         const p1: Protocol = {
+            id: 'DailyRecovery',
             name: 'DailyRecovery',
+            version: '1.0.0',
             category: 'Habit',
+            lifecycle: 'PROPOSED',
+            triggerConditions: [],
+            authorizedCapacities: [],
+            stateTransitions: [],
+            completionConditions: [],
             preconditions: [{ type: 'METRIC_THRESHOLD', metricId: 'stress', operator: '>', value: 80 }],
             execution: [{ type: 'MUTATE_METRIC', metricId: 'recovery', mutation: 10 }]
         };
 
         const bundleSource = {
-            libraryName: 'iron.individual.core',
-            version: '1.0.0',
-            owner: {
-                publicKey: `ed25519:${adminKeys.publicKey}`,
-                scope: 'self'
-            },
             protocols: [p1],
-            createdAt: new Date().toISOString()
+            owner: {
+                entityId: 'self',
+                publicKey: `ed25519:${adminKeys.publicKey}`
+            }
         };
 
-        const bundle = createSignedBundle(bundleSource, adminKeys);
+        const bundle = createSignedBundle(bundleSource as any, adminKeys);
 
         // Load
         expect(() => protocol.loadBundle(bundle, 'self')).not.toThrow();
 
         // Verify Outcome via Kernel
-        const intent = IntentFactory.create('stress', 90, 'self', adminKeys.privateKey, '1000:0');
-        kernel.execute(intent);
+        const action = ActionFactory.create('stress', 90, 'self', adminKeys.privateKey, '1000:0');
+        kernel.execute(action);
 
-        // Kernel's commitPhase triggers 'DailyRecovery' protocol -> 'recovery' = 10
         expect(state.get('recovery')).toBe(10);
     });
 
     test('Rule 1 Rejection: Tampered Bundle ID', () => {
-        const p1: Protocol = { name: 'P1', category: 'Habit', preconditions: [], execution: [] };
-        const bundle = createSignedBundle({
-            libraryName: 'test', version: '1', owner: { publicKey: adminKeys.publicKey, scope: '*' },
-            protocols: [p1], createdAt: ''
-        }, adminKeys);
+        const p1: Protocol = {
+            id: 'P1', name: 'P1', version: '1', category: 'Habit',
+            lifecycle: 'PROPOSED', triggerConditions: [], authorizedCapacities: [],
+            stateTransitions: [], completionConditions: [], preconditions: [], execution: []
+        };
+        const bundleSource = {
+            protocols: [p1],
+            owner: { entityId: 'self', publicKey: adminKeys.publicKey }
+        };
+        const bundle = createSignedBundle(bundleSource as any, adminKeys);
 
         bundle.bundleId = 'fake-id';
         expect(() => protocol.loadBundle(bundle, '*')).toThrow(/Bundle ID Mismatch/);
     });
 
     test('Rule 2 Rejection: Tampered Signature', () => {
-        const p1: Protocol = { name: 'P1', category: 'Habit', preconditions: [], execution: [] };
-        const bundle = createSignedBundle({
-            libraryName: 'test', version: '1', owner: { publicKey: adminKeys.publicKey, scope: '*' },
-            protocols: [p1], createdAt: ''
-        }, adminKeys);
+        const p1: Protocol = {
+            id: 'P1', name: 'P1', version: '1', category: 'Habit',
+            lifecycle: 'PROPOSED', triggerConditions: [], authorizedCapacities: [],
+            stateTransitions: [], completionConditions: [], preconditions: [], execution: []
+        };
+        const bundleSource = {
+            protocols: [p1],
+            owner: { entityId: 'self', publicKey: adminKeys.publicKey }
+        };
+        const bundle = createSignedBundle(bundleSource as any, adminKeys);
 
         bundle.signature = 'ed25519:bad-sig';
         expect(() => protocol.loadBundle(bundle, '*')).toThrow(/Invalid Bundle Signature/);
     });
 
-    test('Rule 3 Rejection: Scope Violation', () => {
-        const p1: Protocol = { name: 'P1', category: 'Habit', preconditions: [], execution: [] };
-        const bundle = createSignedBundle({
-            libraryName: 'test', version: '1', owner: { publicKey: adminKeys.publicKey, scope: 'org.audit' },
-            protocols: [p1], createdAt: ''
-        }, adminKeys);
-
-        // Try to load in 'user' trust scope (User cannot load Audit protocols)
-        expect(() => protocol.loadBundle(bundle, 'user')).toThrow(/Owner Scope Violation/);
-    });
-
     test('Rule 7 Rejection: Bundle Conflict', () => {
-        protocol.register({
-            id: 'existing', name: 'Existing', category: 'Habit',
+        const pExisting: Protocol = {
+            id: 'existing', name: 'Existing', version: '1', category: 'Habit',
+            lifecycle: 'PROPOSED', triggerConditions: [], authorizedCapacities: [],
+            stateTransitions: [], completionConditions: [],
             preconditions: [], execution: [{ type: 'MUTATE_METRIC', metricId: 'recovery', mutation: 1 }]
-        });
+        };
+        protocol.propose(pExisting);
+        protocol.ratify('existing', 'GOV');
+        protocol.activate('existing');
+
 
         const p2: Protocol = {
-            name: 'Conflict', category: 'Habit',
+            id: 'conflict', name: 'Conflict', version: '1', category: 'Habit',
+            lifecycle: 'PROPOSED', triggerConditions: [], authorizedCapacities: [],
+            stateTransitions: [], completionConditions: [],
             preconditions: [], execution: [{ type: 'MUTATE_METRIC', metricId: 'recovery', mutation: 5 }]
         };
 
-        const bundle = createSignedBundle({
-            libraryName: 'conflict-lib', version: '1', owner: { publicKey: adminKeys.publicKey, scope: '*' },
-            protocols: [p2], createdAt: ''
-        }, adminKeys);
+        const bundleSource = {
+            protocols: [p2],
+            owner: { entityId: 'self', publicKey: adminKeys.publicKey }
+        };
+
+        const bundle = createSignedBundle(bundleSource as any, adminKeys);
 
         expect(() => protocol.loadBundle(bundle, '*')).toThrow(/Bundle Conflict/);
     });
 });
+

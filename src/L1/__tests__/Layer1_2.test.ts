@@ -1,6 +1,6 @@
 import { DeterministicTime } from '../../L0/Kernel.js';
 import { IdentityManager } from '../../L1/Identity.js';
-import type { Principal } from '../../L1/Identity.js';
+import type { Entity } from '../../L1/Identity.js';
 import { MetricRegistry, MetricType, StateModel } from '../../L2/State.js';
 import { TrendAnalyzer } from '../../L2/Prediction.js';
 import { AuditLog } from '../../L5/Audit.js';
@@ -12,7 +12,14 @@ describe('L1 Truth & L2 Prediction', () => {
     let identity: IdentityManager;
     let state: StateModel;
     let predictor: TrendAnalyzer;
-    const admin: Principal = { id: 'admin', publicKey: 'key', type: 'INDIVIDUAL', validFrom: 0, validUntil: 999999 };
+    const admin: Entity = {
+        id: 'admin',
+        publicKey: 'key',
+        type: 'ACTOR',
+        identityProof: 'TEST',
+        status: 'ACTIVE',
+        createdAt: '0:0'
+    };
 
     beforeEach(() => {
         audit = new AuditLog();

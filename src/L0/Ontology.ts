@@ -1,125 +1,140 @@
 
 /**
- * IRON-5 ONTOLOGY
+ * IRON ONTOLOGY (v1.0 Foundational)
  * The Single Source of Truth for all Kernel Primitives.
  * 
- * "No kernel module introduces a new undefined primitive."
+ * Based on the IRON KERNEL PRIMITIVE SET v1.0
  */
 
-// --- I. Identity & Authority (Who) ---
+// --- 1. Entity ---
+export type EntityID = string;
+export type EntityType = 'ACTOR' | 'OFFICE' | 'ASSET' | 'SYSTEM' | 'ABSTRACT';
+export type EntityStatus = 'ACTIVE' | 'SUSPENDED' | 'DISSOLVED' | 'REVOKED';
 
-export type PrincipalId = string; // e.g. "did:iron:123", "sys:root"
+export interface Entity {
+    id: EntityID;
+    type: EntityType;
+    identityProof: string; // auth ref or cryptographic proof
+    status: EntityStatus;
+}
 
+// --- 2. Identity ---
 export interface Identity {
-    id: PrincipalId;
-    type: 'HUMAN' | 'AGENT' | 'SYSTEM' | 'DAO';
-    publicKey: string; // ed25519
-    createdAt: string; // LogicalTimestamp
+    entityId: EntityID;
+    publicKey: string;
+    verificationMethod: string;
+    validityWindow: { from: string; until?: string };
+    delegationChain: string[]; // List of DelegationIDs or similar
 }
 
-export type Signature = string; // "ed25519:<hex>"
+// --- 3. Capacity ---
+export type CapacityID = string;
+export interface Capacity {
+    id: CapacityID;
+    heldBy: EntityID;
+    conferredBy: AuthorityID;
+    scope: JurisdictionID[];
+    validity: string;
+    revocationConditions: string;
+}
 
+// --- 4. Authority ---
+export type AuthorityID = string;
 export interface Authority {
-    principalId: PrincipalId;
-    scope: Capability[];
-    delegations: Delegation[];
+    id: AuthorityID;
+    source: 'CONSTITUTION' | 'DELEGATION' | 'LAW' | 'EMERGENCY';
+    grantsCapacities: CapacityID[];
+    permitsActions: string[]; // Action types or ProtoIDs
+    imposesObligations: string[];
+    boundedBy: JurisdictionID;
 }
 
-export interface Capability {
-    action: string; // "METRIC.WRITE"
-    resource: string; // "system.loading"
-    constraint?: string; // "value < 100"
+// --- 5. Jurisdiction ---
+export type JurisdictionID = string;
+export interface Jurisdiction {
+    id: JurisdictionID;
+    scopeDefinition: string;
+    inclusionRules: string[];
+    exclusionRules: string[];
+    temporalBoundaries: string;
 }
 
-export interface Delegation {
-    granter: PrincipalId;
-    grantee: PrincipalId;
-    scope: Capability[];
-    expiry: string; // LogicalTimestamp
-    signature: Signature;
+// --- 6. Governed State ---
+export type StateID = string;
+export type StateValue = number | string | boolean | any;
+export interface GovernedState {
+    id: StateID;
+    schema: string;
+    currentValue: StateValue;
+    version: number;
+    derivationHistory: string; // EvidenceID link
 }
 
-// --- II. State & Change (What) ---
-
-export type MetricId = string;
-export type MetricValue = number | string | boolean;
-
-export interface State {
-    hash: string; // Merkle Root
-    metrics: Map<MetricId, MetricValue>;
-    lineageHeight: number;
-}
-
-export interface Intent {
-    intentId: string;
-    principalId: PrincipalId;
-    payload: {
-        metricId: MetricId;
-        value: MetricValue;
-    };
-    timestamp: string; // LogicalTimestamp
-    expiresAt: string;
-    signature: Signature;
-}
-
-export interface Event {
-    id: string;
-    type: string;
-    timestamp: string;
-    data: any;
-}
-
-// --- III. Law & Protocol (How) ---
-
-export type ProtocolId = string;
-
+// --- 7. Protocol ---
+export type ProtocolID = string;
 export interface Protocol {
-    id: ProtocolId;
-    category: 'INTENT' | 'HABIT' | 'BUDGET' | 'AUTHORITY' | 'ACCOUNTABILITY' | 'RISK';
-    logic: (state: State, intent: Intent) => Effect[];
+    id: ProtocolID;
+    triggerConditions: string[];
+    preconditions: string[];
+    authorizedCapacities: CapacityID[];
+    stateTransitions: string[];
+    completionConditions: string[];
 }
 
-export interface Law {
-    id: string;
-    statement: string; // "Authority Conservation Law"
-    enforcement: (context: any) => boolean;
+// --- 8. Action ---
+export type ActionID = string;
+export interface Action {
+    id: ActionID;
+    initiator: EntityID;
+    invokedCapacity: CapacityID;
+    protocolReference: ProtocolID;
+    declaredIntent: string;
+    timestamp: string; // LogicalTimestamp
+    signature: string;
 }
 
-export interface Effect {
-    metricId: MetricId;
-    mutation: MetricValue;
-}
-
-// --- IV. Economics & Accountability (Cost) ---
-
-export interface Budget {
-    type: 'ENERGY' | 'COMPUTE' | 'RISK';
-    limit: number;
-    consumed: number;
-}
-
-export interface Violation {
-    ruleId: string;
-    offender: PrincipalId;
+// --- 9. Invariant ---
+export type InvariantID = string;
+export interface Invariant {
+    id: InvariantID;
+    predicate: string;
+    scope: JurisdictionID;
     severity: 'WARNING' | 'CRITICAL' | 'FATAL';
-    timestamp: string;
+    enforcementDirective: string;
 }
 
-export interface Accountability {
-    score: number;
-    history: Violation[];
+// --- 10. Sanction ---
+export type SanctionID = string;
+export interface Sanction {
+    id: SanctionID;
+    trigger: string; // Violation info
+    target: EntityID;
+    effect: string;
+    executionMode: 'AUTOMATIC' | 'AUDIT_ONLY';
 }
 
-// --- V. Federation (Where) ---
-
-export interface Federation {
-    kernelId: string;
-    peers: string[]; // List of other Kernel IDs
-    trustLevel: 'SOVEREIGN' | 'ALLIED' | 'HOSTILE';
+// --- 11. Override ---
+export type OverrideID = string;
+export interface Override {
+    id: OverrideID;
+    authorizingAuthority: AuthorityID;
+    scope: JurisdictionID;
+    justificationRecord: string;
+    auditObligation: string;
 }
 
-// --- VI. Kernel Lifecycle (When) ---
+// --- 12. Evidence ---
+export type EvidenceID = string;
+export interface Evidence {
+    id: EvidenceID;
+    linkedAction: ActionID;
+    authorityTrace: string;
+    protocolTrace: string;
+    stateDiff: string;
+    immutabilityProof: string;
+}
 
+// --- Kernel Lifecycle ---
 export type KernelState =
     | 'UNINITIALIZED'
     | 'CONSTITUTED'

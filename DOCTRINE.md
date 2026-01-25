@@ -17,7 +17,7 @@ IRON is **Infrastructure**, not a Destination.
 
 ### II. The Determinism Pact
 *   Governance must be **Replayable**.
-*   Given `History` + `Intent`, the result must **always** be identical.
+*   Given `History` + `Action`, the result must **always** be identical.
 *   No randomness. No external API calls in the Kernel. No "AI Judgement" without cryptographic binding.
 
 ### III. The Commercial Boundary (The Linux Model)
@@ -25,6 +25,11 @@ We monetize **Safety**, not *Utility*.
 *   **Utility** (State, Auth, Protocols) is Free/Open.
 *   **Safety** (Audit, Simulation, Formal Verification) is Paid/Proprietary.
 *   *If the user can shoot their own foot, it's free. If they want a safety holster, it costs.*
+
+### IV. The OS Mandate
+IRON is a **Governance Operating System**, not a framework. 
+It permits, forbids, records, and enforces. 
+It does not help, suggest, or manage.
 
 ## 3. Cultural Axioms
 
@@ -34,4 +39,4 @@ We monetize **Safety**, not *Utility*.
 
 ---
 *Ratified: Month 1, Day 30*
-*Version: 1.0*
+*Version: 1.1 (Aligned with Boundary Charter)*

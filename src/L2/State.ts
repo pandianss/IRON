@@ -1,25 +1,25 @@
-
 // src/L2/State.ts
-import type { PrincipalId } from '../L1/Identity.js';
+import type { EntityID } from '../L0/Ontology.js';
 import { IdentityManager } from '../L1/Identity.js';
 import { verifySignature, hash } from '../L0/Crypto.js';
 import { AuditLog } from '../L5/Audit.js';
 import { LogicalTimestamp } from '../L0/Kernel.js';
 
-// --- Intent ---
-export interface MetricPayload {
+// --- Action ---
+export interface ActionPayload {
     metricId: string;
     value: any;
 }
 
-export interface Intent {
-    intentId: string;
-    principalId: PrincipalId;
-    payload: MetricPayload;
+export interface Action {
+    actionId: string;
+    initiator: EntityID;
+    payload: ActionPayload;
     timestamp: string;
-    expiresAt: string; // BigInt or String? String due to JSON/Serialization
+    expiresAt: string;
     signature: string;
 }
+
 
 // --- Metrics ---
 export enum MetricType {
@@ -60,30 +60,30 @@ export class StateModel {
         private identityManager: IdentityManager
     ) { }
 
-    public apply(intent: Intent): void {
+    public apply(action: Action): void {
         try {
             // 1. Verify Identity & Signature
-            const principal = this.identityManager.get(intent.principalId);
-            if (!principal) throw new Error("Unknown Principal");
-            if (principal.revoked) throw new Error("Principal Revoked");
+            const entity = this.identityManager.get(action.initiator);
+            if (!entity) throw new Error("Unknown Entity");
+            if (entity.status === 'REVOKED') throw new Error("Entity Revoked");
 
-            const data = `${intent.intentId}:${intent.principalId}:${JSON.stringify(intent.payload)}:${intent.timestamp}:${intent.expiresAt}`;
+            const data = `${action.actionId}:${action.initiator}:${JSON.stringify(action.payload)}:${action.timestamp}:${action.expiresAt}`;
 
-            if (!verifySignature(data, intent.signature, principal.publicKey)) {
-                throw new Error("Invalid Intent Signature");
+            if (!verifySignature(data, action.signature, entity.publicKey)) {
+                throw new Error("Invalid Action Signature");
             }
 
             // 2. Delegate to common application logic
-            this.applyTrusted(intent.payload, intent.timestamp, intent.principalId, intent.intentId);
+            this.applyTrusted(action.payload, action.timestamp, action.initiator, action.actionId);
 
         } catch (e: any) {
             console.warn(`State Transition Failed: ${e.message}`);
-            this.auditLog.append(intent, 'FAILURE');
+            this.auditLog.append(action, 'FAILURE');
             throw e;
         }
     }
 
-    public validateMutation(payload: MetricPayload): void {
+    public validateMutation(payload: ActionPayload): void {
         if (!payload?.metricId) throw new Error("Missing Metric ID");
         const def = this.registry.get(payload.metricId);
         if (!def) throw new Error(`Unknown metric: ${payload.metricId}`);
@@ -94,7 +94,7 @@ export class StateModel {
      * Applies a state transition without signature verification.
      * Use ONLY from trusted sources (e.g., Kernel after verification, Internal Engines).
      */
-    public applyTrusted(payload: MetricPayload, timestamp: string, principalId: string = 'system', intentId?: string): Intent {
+    public applyTrusted(payload: ActionPayload, timestamp: string, initiator: string = 'system', actionId?: string): Action {
         this.validateMutation(payload);
 
         // 2. Monotonic Time Check
@@ -108,10 +108,10 @@ export class StateModel {
             }
         }
 
-        // 3. Construct dummy intent for logging if not provided
-        const intent: Intent = {
-            intentId: intentId || hash(`trusted:${principalId}:${payload.metricId}:${timestamp}:${Math.random()}`),
-            principalId,
+        // 3. Construct action record for logging if not provided
+        const action: Action = {
+            actionId: actionId || hash(`trusted:${initiator}:${payload.metricId}:${timestamp}:${Math.random()}`),
+            initiator,
             payload,
             timestamp,
             expiresAt: '0',
@@ -119,16 +119,16 @@ export class StateModel {
         };
 
         // 4. Commit SUCCESS to Audit Log
-        const logEntry = this.auditLog.append(intent, 'SUCCESS');
+        const logEntry = this.auditLog.append(action, 'SUCCESS');
 
         // 5. Update State
         const prevStateHash = lastState ? lastState.stateHash : '0000000000000000000000000000000000000000000000000000000000000000';
-        const stateHash = hash(prevStateHash + logEntry.hash);
+        const stateHash = hash(prevStateHash + logEntry.evidenceId);
 
         const newState: StateValue = {
             value: payload.value,
             updatedAt: timestamp,
-            evidenceHash: logEntry.hash,
+            evidenceHash: logEntry.evidenceId,
             stateHash: stateHash
         };
 
@@ -136,7 +136,7 @@ export class StateModel {
         if (!this.history.has(payload.metricId)) this.history.set(payload.metricId, []);
         this.history.get(payload.metricId)?.push(newState);
 
-        return intent;
+        return action;
     }
 
     public get(id: string) { return this.state.get(id)?.value; }

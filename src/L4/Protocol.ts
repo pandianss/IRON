@@ -1,7 +1,7 @@
 import { StateModel } from '../L2/State.js';
-import { IntentFactory } from '../L2/IntentFactory.js';
+import { ActionFactory } from '../L2/ActionFactory.js';
 import { LogicalTimestamp } from '../L0/Kernel.js';
-import type { PrincipalId } from '../L1/Identity.js';
+import type { EntityID } from '../L0/Ontology.js';
 import { IdentityManager } from '../L1/Identity.js';
 import { verifySignature } from '../L0/Crypto.js';
 import type { Ed25519PrivateKey } from '../L0/Crypto.js';
@@ -49,10 +49,12 @@ export class ProtocolEngine {
     activate(id: string): void {
         const p = this.protocols.get(id);
         if (!p) throw new Error("Protocol not found");
+        if (p.lifecycle === 'ACTIVE') return;
         if (p.lifecycle !== 'RATIFIED') throw new Error(`Cannot activate: Protocol must be RATIFIED first (Current: ${p.lifecycle})`);
 
         p.lifecycle = 'ACTIVE';
     }
+
 
     // V.2 Death Law
     deprecate(id: string): void {
@@ -104,10 +106,10 @@ export class ProtocolEngine {
             throw new Error("Invalid Bundle Signature");
         }
 
-        // 3. Rule 3: Owner Scope subset Trust Scope
-        if (!this.isScopeAllowed(bundle.owner.scope, trustScope)) {
-            throw new Error(`Owner Scope Violation: ${bundle.owner.scope} not allowed in ${trustScope}`);
-        }
+        // 3. Rule 3: Owner Trust (Runtime Authority Engine check is primary)
+        // Note: Commercial scope metadata removed in favor of explicit Jurisdiction primitives.
+        // if (!this.isScopeAllowed(bundle.owner.scope, trustScope)) { ... }
+
 
         // 4. Rule 7: Conflict Detection
         const existingTargets = new Map<string, string>();

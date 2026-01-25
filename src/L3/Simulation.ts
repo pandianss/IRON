@@ -6,8 +6,8 @@ import { AuditLog } from '../L5/Audit.js';
 import { ProtocolEngine } from '../L4/Protocol.js';
 import type { Protocol } from '../L4/Protocol.js';
 
-// --- Action ---
-export interface Action {
+// --- SimAction ---
+export interface SimAction {
     id: string;
     description: string;
     targetMetricId: string;
@@ -29,7 +29,7 @@ export class MonteCarloEngine {
 
     public simulate(
         currentState: StateModel,
-        action: Action | null,
+        action: SimAction | null,
         horizon: number,
         runs: number = 50,
         volatility: number = 0.1, // 10% random variance per tick
@@ -41,30 +41,16 @@ export class MonteCarloEngine {
         const targetId = targetMetricId || (action ? action.targetMetricId : "system.load");
 
         for (let i = 0; i < runs; i++) {
-            // We need a way to inject noise into the SimulationEngine.
-            // For now, we'll subclass or modify SimulationEngine to accept a 'noise' function.
-            // Or simpler: We just perturb the *action* value for this run if valid, 
-            // OR we assume the SimulationEngine's 'run' method can handle noise.
-
-            // Let's assume we modify the 'run' method below to take a noise factor.
-            // But for now, let's purely random-walk the *Action* magnitude if present.
-
             let resultVal = 0;
             if (action) {
                 // Perturb action value: value * (1 + (rand - 0.5) * volatility)
                 const noise = (Math.random() - 0.5) * 2 * volatility;
-                const noisyAction = { ...action, valueMutation: action.valueMutation * (1 + noise) };
+                const noisyAction: SimAction = { ...action, valueMutation: action.valueMutation * (1 + noise) };
                 const forecast = this.simEngine.run(currentState, noisyAction, horizon, extraProtocols);
                 resultVal = forecast ? forecast.predictedValue : 0;
             } else {
-                // Even without action, the trend might vary? 
-                // TrendAnalyzer is deterministic. 
-                // To simulate market noise, we'd need stochastic process in Prediction.ts.
-                // For MVP, we only simulate "Execution Variance" (Action volatility) or basic noise.
-                // Let's add basic white noise to result if no action, to simulate market volatility
-
-                // We must pass a dummy action to force SimulationEngine to look at targetId
-                const dummyAction: Action = { id: 'noop', description: 'noop', targetMetricId: targetId, valueMutation: 0 };
+                // To simulate market noise, we must pass a dummy action to force SimulationEngine to look at targetId
+                const dummyAction: SimAction = { id: 'noop', description: 'noop', targetMetricId: targetId, valueMutation: 0 };
                 const forecast = this.simEngine.run(currentState, dummyAction, horizon, extraProtocols);
                 const noise = (Math.random() - 0.5) * 2 * volatility;
                 resultVal = forecast ? forecast.predictedValue * (1 + noise) : 0;
@@ -80,7 +66,6 @@ export class MonteCarloEngine {
         const p10 = results[p10Index] ?? results[0] ?? 0;
         const p90 = results[p90Index] ?? results[results.length - 1] ?? 0;
 
-        // Fail probability (e.g., if metric goes below 0 or above 100? hardcoded for now or passed in?)
         const defaultFailure = (r: number) => r < 0;
         const isFailure = failureCondition || defaultFailure;
 
@@ -102,7 +87,7 @@ export class SimulationEngine {
 
     public run(
         currentState: StateModel,
-        action: Action | null,
+        action: SimAction | null,
         horizon: number,
         extraProtocols: Protocol[] = []
     ): Forecast | null {
@@ -129,36 +114,32 @@ export class SimulationEngine {
             simState.applyTrusted({ metricId: targetId, value: newVal }, time.toString(), 'sim-action');
 
             // 4. Trigger Protocols (Simulated)
-            // Note: ProtocolEngine needs to be forked or use SimState
             const simProtocols = new ProtocolEngine(simState);
 
             // Register existing protocols
-            // In a real system, we'd copy registered protocols. 
-            // For MVP sim, we assume the passed ProtocolEngine is the source.
-            (this.protocols as any).protocols.forEach((p: any, id: string) => simProtocols.register(p));
+            (this.protocols as any).protocols.forEach((p: any) => {
+                const id = simProtocols.propose(p);
+                simProtocols.ratify(id, 'SIM');
+                simProtocols.activate(id);
+            });
 
             // Register extra protocols (Vetting Candidates)
-            extraProtocols.forEach(p => simProtocols.register(p));
+            extraProtocols.forEach(p => {
+                const id = simProtocols.propose(p);
+                simProtocols.ratify(id, 'SIM');
+                simProtocols.activate(id);
+            });
 
-            // Simulating a few ticks of protocols
             try {
-                // Trigger Protocols based on the new state
                 const mutations = simProtocols.evaluate(time);
-
-                // Apply Protocol Mutations to Sim State
                 mutations.forEach(m => {
                     simState.applyTrusted({ metricId: m.metricId, value: m.value }, time.toString(), 'sim-protocol');
                 });
             } catch (e) {
-                // Protocol conflict or failure in sim
-                // In Monte Carlo, this might count as a failure?
-                // For now, silent catch to allow simulation to proceed with partial data, 
-                // or maybe we should rethrow to signal 'System Crash'?
-                // Let's assume protocol error = stability risk, but for MVP we ignore.
+                // Silent catch to allow simulation to proceed
             }
         }
 
-        // 5. Run Prediction
         const analyzer = new TrendAnalyzer(simState);
         return analyzer.forecast(targetId, horizon);
     }
@@ -170,7 +151,7 @@ export class HybridStrategyEngine {
 
     public compare(
         currentState: StateModel,
-        action: Action,
+        action: SimAction,
         horizon: number
     ): { baseline: Forecast | null, simulated: Forecast | null, delta: number } {
 
@@ -185,4 +166,5 @@ export class HybridStrategyEngine {
         return { baseline, simulated, delta };
     }
 }
+
 

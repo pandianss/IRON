@@ -1,11 +1,10 @@
 
 import { StateModel } from '../L2/State.js';
-import type { MetricPayload } from '../L2/State.js';
-import { IntentFactory } from '../L2/IntentFactory.js';
+import { ActionFactory } from '../L2/ActionFactory.js';
 import { LogicalTimestamp } from '../L0/Kernel.js';
-import type { Principal } from '../L1/Identity.js';
+import type { EntityID } from '../L0/Ontology.js';
 import { SimulationEngine } from '../L3/Simulation.js';
-import type { Action } from '../L3/Simulation.js';
+import type { SimAction } from '../L3/Simulation.js';
 
 export class ChaosBudget {
     constructor(private limit: number, private currentSpend: number = 0) { }
@@ -38,9 +37,9 @@ export class ChaosEngine {
     }
 
     public scheduleInjection(
-        action: Action,
+        action: SimAction,
         cost: number,
-        authority: Principal,
+        entityId: EntityID,
         time: LogicalTimestamp
     ): boolean {
         // 1. Check Safety (Circuit Breaker)
@@ -57,7 +56,7 @@ export class ChaosEngine {
 
         // 3. Inject (Apply Action)
         this.budget.spend(cost);
-        this.executeChaos(action, authority, time);
+        this.executeChaos(action, entityId, time);
         return true;
     }
 
@@ -67,12 +66,13 @@ export class ChaosEngine {
         return load < 90;
     }
 
-    private executeChaos(action: Action, authority: Principal, time: LogicalTimestamp) {
+    private executeChaos(action: SimAction, entityId: EntityID, time: LogicalTimestamp) {
         // Reuse similar logic to L3/L4 appliers
         const currentVal = Number(this.state.get(action.targetMetricId) || 0);
         const newVal = currentVal + action.valueMutation;
 
         // Using applyTrusted for internal chaos injection
-        this.state.applyTrusted({ metricId: action.targetMetricId, value: newVal }, time.toString(), authority.id);
+        this.state.applyTrusted({ metricId: action.targetMetricId, value: newVal }, time.toString(), entityId);
     }
 }
+

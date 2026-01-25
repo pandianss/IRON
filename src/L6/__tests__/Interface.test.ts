@@ -1,31 +1,31 @@
-
 import { describe, test, expect, beforeEach, jest } from '@jest/globals';
-import { IntentBuilder } from '../Interface.js';
+import { ActionBuilder } from '../Interface.js';
 import { signData, generateKeyPair, hash } from '../../L0/Crypto.js';
 
 describe('Human Interface (VI.1 Consent)', () => {
     const keys = generateKeyPair();
 
-    test('IntentBuilder: Binds Identity and Payload', () => {
-        const builder = new IntentBuilder()
-            .withPrincipal('user1')
+    test('ActionBuilder: Binds Identity and Payload', () => {
+        const builder = new ActionBuilder()
+            .withInitiator('user1')
             .withMetric('test.metric')
             .withValue(100)
             .withContext('Update Setting', 'flow:123');
 
-        const intent = builder.build(keys);
+        const action = builder.build(keys);
 
-        expect(intent.principalId).toBe('user1');
-        expect(intent.payload.metricId).toBe('test.metric');
-        expect(intent.payload.value).toBe(100);
-        expect(intent.signature).toBeDefined();
+        expect(action.initiator).toBe('user1');
+        expect(action.payload.metricId).toBe('test.metric');
+        expect(action.payload.value).toBe(100);
+        expect(action.signature).toBeDefined();
     });
 
-    test('IntentBuilder: Fails if incomplete', () => {
-        const builder = new IntentBuilder().withPrincipal('user1');
-        expect(() => builder.build(keys)).toThrow(/Incomplete Intent/);
+    test('ActionBuilder: Fails if incomplete', () => {
+        const builder = new ActionBuilder().withInitiator('user1');
+        expect(() => builder.build(keys)).toThrow(/Incomplete Action/);
     });
 });
+
 
 describe('Human Interface (VI.2 Override)', () => {
     // We need to mock Kernel to test override logic without full setup

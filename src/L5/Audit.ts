@@ -1,23 +1,23 @@
 // src/L5/Audit.ts
 import { hash } from '../L0/Crypto.js';
-import type { Intent } from '../L2/State.js';
+import type { Action } from '../L2/State.js';
 
-// --- Audit Log (Hash Chain) ---
-export interface LogEntry {
-    hash: string;
-    previousHash: string;
-    intent: Intent;
+// --- 12. Evidence (The institutional truth substrate) ---
+export interface Evidence {
+    evidenceId: string; // The identifying hash
+    previousEvidenceId: string; // Chain linkage
+    action: Action; // LinkedAction
     status: 'SUCCESS' | 'FAILURE' | 'ATTEMPT' | 'REJECT' | 'ABORTED';
     reason?: string;
-    timestamp: number; // Wall clock time of logging
+    timestamp: number; // For temporal audit
 }
 
 export class AuditLog {
-    private chain: LogEntry[] = [];
+    private chain: Evidence[] = [];
     private genesisHash = '0000000000000000000000000000000000000000000000000000000000000000';
 
-    public append(intent: Intent, status: 'SUCCESS' | 'FAILURE' | 'ATTEMPT' | 'REJECT' | 'ABORTED' = 'SUCCESS', reason?: string): LogEntry {
-        const previousHash = this.chain.length > 0 ? this.chain[this.chain.length - 1]!.hash : this.genesisHash;
+    public append(action: Action, status: 'SUCCESS' | 'FAILURE' | 'ATTEMPT' | 'REJECT' | 'ABORTED' = 'SUCCESS', reason?: string): Evidence {
+        const previousHash = this.chain.length > 0 ? this.chain[this.chain.length - 1]!.evidenceId : this.genesisHash;
         const lastTs = this.chain.length > 0 ? this.chain[this.chain.length - 1]!.timestamp : 0;
         const now = Date.now();
 
@@ -26,22 +26,22 @@ export class AuditLog {
             throw new Error("Audit Violation: Temporal integrity breached (Time moved backwards)");
         }
 
-        const entryHash = this.calculateHash(previousHash, intent, status, now, reason);
+        const entryHash = this.calculateHash(previousHash, action, status, now, reason);
 
-        const entry: LogEntry = {
-            hash: entryHash,
-            previousHash: previousHash,
-            intent: intent,
+        const evidence: Evidence = {
+            evidenceId: entryHash,
+            previousEvidenceId: previousHash,
+            action: action,
             status: status,
             timestamp: now,
             ...(reason ? { reason } : {})
         };
 
-        this.chain.push(entry);
-        return entry;
+        this.chain.push(evidence);
+        return evidence;
     }
 
-    public getHistory(): LogEntry[] { return [...this.chain]; }
+    public getHistory(): Evidence[] { return [...this.chain]; }
 
     // IV.3 Historical Legitimacy
     public verifyChain(): boolean {
@@ -50,16 +50,16 @@ export class AuditLog {
 
         for (const entry of this.chain) {
             // 1. Linkage Check
-            if (entry.previousHash !== prev) return false;
+            if (entry.previousEvidenceId !== prev) return false;
 
             // 2. Hash Check
-            const h = this.calculateHash(prev, entry.intent, entry.status, entry.timestamp, entry.reason);
-            if (h !== entry.hash) return false;
+            const h = this.calculateHash(prev, entry.action, entry.status, entry.timestamp, entry.reason);
+            if (h !== entry.evidenceId) return false;
 
             // 3. Time Check
             if (entry.timestamp < lastTs) return false;
 
-            prev = entry.hash;
+            prev = entry.evidenceId;
             lastTs = entry.timestamp;
         }
         return true;
@@ -68,8 +68,8 @@ export class AuditLog {
     // Alias for compatibility
     public verifyIntegrity(): boolean { return this.verifyChain(); }
 
-    private calculateHash(prevHash: string, intent: Intent, status: string, timestamp: number, reason?: string): string {
-        const data = prevHash + JSON.stringify(intent) + status + timestamp + (reason || '');
+    private calculateHash(prevHash: string, action: Action, status: string, timestamp: number, reason?: string): string {
+        const data = prevHash + JSON.stringify(action) + status + timestamp + (reason || '');
         return hash(data);
     }
 }

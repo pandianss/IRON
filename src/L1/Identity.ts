@@ -1,271 +1,152 @@
 import { verifySignature } from '../L0/Crypto.js';
 import type { Ed25519PublicKey, Signature } from '../L0/Crypto.js';
-import type { Capability } from '../L0/Ontology.js';
+import type {
+    EntityID, EntityType, EntityStatus, Entity as EntityPrimitive,
+    CapacityID, Capacity as CapacityPrimitive,
+    JurisdictionID, Jurisdiction as JurisdictionPrimitive,
+    AuthorityID
+} from '../L0/Ontology.js';
 
-export type PrincipalId = string;
-
-// --- 7. Capability Algebra (Meet-Semilattice) ---
-
-export class CapabilityAlgebra {
-    // ⊑ — partial order (is child a subset of parent?)
-    static isSubCapability(child: Capability, parent: Capability): boolean {
-        // 1. Action Check (e.g. METRIC.WRITE ⊆ *)
-        const actionMatch = parent.action === '*' || child.action === parent.action ||
-            (parent.action.endsWith('*') && child.action.startsWith(parent.action.slice(0, -1)));
-
-        // 2. Resource Check (e.g. system.load ⊆ *)
-        const resourceMatch = parent.resource === '*' || child.resource === parent.resource ||
-            (parent.resource.endsWith('*') && child.resource.startsWith(parent.resource.slice(0, -1)));
-
-        // 3. Constraint Check (Not fully impl in MVP, assume parent constraint implies child constraint if present)
-        // For now: strict equality or parent has no constraint
-        const constraintMatch = !parent.constraint || parent.constraint === child.constraint;
-
-        return actionMatch && resourceMatch && constraintMatch;
-    }
-}
-
-export class CapabilitySet {
-    private caps: Capability[] = [];
-
-    constructor(caps: Capability[] = []) {
-        this.caps = [...caps];
-    }
-
-    // ⊥ — empty scope
-    static empty(): CapabilitySet { return new CapabilitySet(); }
-
-    get all(): Capability[] { return [...this.caps]; }
-
-    // ⊓ — intersection
-    intersect(other: CapabilitySet): CapabilitySet {
-        const result: Capability[] = [];
-        for (const a of this.caps) {
-            for (const b of other.caps) {
-                // If A ⊆ B, then A is in the intersection
-                if (CapabilityAlgebra.isSubCapability(a, b)) {
-                    result.push(a);
-                }
-                // If B ⊆ A, then B is in the intersection
-                else if (CapabilityAlgebra.isSubCapability(b, a)) {
-                    result.push(b);
-                }
-            }
-        }
-        // Deduplicate? For MVP, assume explicit list.
-        return new CapabilitySet(result);
-    }
-
-    // ⊆ (for verification)
-    isSubsetOf(other: CapabilitySet): boolean {
-        // Every capability in THIS must be covered by at least one capability in OTHER
-        for (const child of this.caps) {
-            const covered = other.caps.some(parent => CapabilityAlgebra.isSubCapability(child, parent));
-            if (!covered) return false;
-        }
-        return true;
-    }
-
-    add(cap: Capability) { this.caps.push(cap); }
-
-    // Check if this set implies the requested capability
-    implies(cap: Capability): boolean {
-        return this.caps.some(parent => CapabilityAlgebra.isSubCapability(cap, parent));
-    }
-}
-
-export interface Principal {
-    id: PrincipalId;
+// --- 1. Entity (Primitive) ---
+// We extend the Ontology primitive with runtime state
+export interface Entity extends EntityPrimitive {
     publicKey: Ed25519PublicKey;
-    type: 'INDIVIDUAL' | 'ORGANIZATION' | 'AGENT';
+    createdAt: string;
+    revokedAt?: string;
+    isRoot?: boolean;
+}
 
-    // Core State Variables (Section 2)
-    alive: boolean;
-    revoked: boolean;
-    scopeOf: CapabilitySet; // Intrinsic scope
-    parents: PrincipalId[]; // Structural provenance
-    createdAt: string; // TIME
-    revokedAt?: string; // TIME
+// --- 5. Jurisdiction (Simplified Runtime) ---
+export class JurisdictionSet {
+    constructor(private jurisdictions: JurisdictionID[] = []) { }
+    public includes(id: JurisdictionID): boolean { return this.jurisdictions.includes(id); }
+    public list(): JurisdictionID[] { return [...this.jurisdictions]; }
+}
 
-    isRoot?: boolean; // Section 1.1
+// --- 3. Capacity (Primitive) ---
+export interface Capacity extends CapacityPrimitive {
+    // Runtime methods could go here
 }
 
 export class IdentityManager {
-    private principals: Map<string, Principal> = new Map();
+    private entities: Map<EntityID, Entity> = new Map();
 
-    register(p: any) {
-        // I-2: No resurrection. If identity was revoked, cannot register again.
-        const existing = this.principals.get(p.id);
-        if (existing && existing.revoked) {
-            throw new Error(`Identity Violation: No Resurrection allowed for ${p.id}`);
+    public register(e: Entity) {
+        // I-2: No resurrection.
+        const existing = this.entities.get(e.id);
+        if (existing && existing.status === 'REVOKED') {
+            throw new Error(`Identity Violation: No Resurrection allowed for REVOKED entity ${e.id}`);
         }
 
-        const parents = p.parents || [];
-        const scopeOf = p.scopeOf || CapabilitySet.empty();
-        const createdAt = p.createdAt || '0:0';
-
-        // I-4: Acyclic provenance (parents forms a DAG)
-        if (parents.length > 0) {
-            this.checkCycle(p.id, parents);
-        }
-
-        this.principals.set(p.id, {
-            ...p,
-            parents,
-            scopeOf,
-            createdAt,
-            alive: true,
-            revoked: false
+        this.entities.set(e.id, {
+            ...e,
+            status: e.status || 'ACTIVE'
         });
     }
 
-    get(id: string): Principal | undefined {
-        return this.principals.get(id);
+    public get(id: EntityID): Entity | undefined {
+        return this.entities.get(id);
     }
 
-    revoke(id: string, now: string) {
-        const p = this.principals.get(id);
-        if (!p) return;
+    public revoke(id: EntityID, now: string) {
+        const e = this.entities.get(id);
+        if (!e) return;
 
-        // I-1: Root immutability (Roots cannot be revoked)
-        if (p.isRoot) {
-            throw new Error(`Identity Violation: Root identities cannot be revoked (${id})`);
+        if (e.isRoot) {
+            throw new Error(`Identity Violation: Root entities cannot be revoked (${id})`);
         }
 
-        // I-2: No resurrection (once revoked, always revoked)
-        p.alive = false;
-        p.revoked = true;
-        p.revokedAt = now;
-
-        // I-3: Scope monotonicity (Revoked identities hold no authority)
-        p.scopeOf = CapabilitySet.empty();
-    }
-
-    private checkCycle(id: string, parents: string[]) {
-        const visited = new Set<string>();
-        const stack = [...parents];
-
-        while (stack.length > 0) {
-            const current = stack.pop()!;
-            if (current === id) throw new Error(`Identity Violation: Cyclic provenance detected for ${id}`);
-            if (visited.has(current)) continue;
-            visited.add(current);
-
-            const p = this.principals.get(current);
-            if (p) stack.push(...p.parents);
-        }
+        e.status = 'REVOKED';
+        e.revokedAt = now;
     }
 }
 
-
-
-// --- Delegation ---
+// --- 4. Authority & Delegation ---
 export interface Delegation {
-    delegator: PrincipalId;
-    grantee: PrincipalId;
-    scope: CapabilitySet;
+    authorityId: AuthorityID;
+    granter: EntityID;
+    grantee: EntityID;
+    capacity: CapacityID;
+    jurisdiction: JurisdictionID;
     timestamp: string;
     signature: Signature;
 }
 
-export class DelegationEngine {
+export class AuthorityEngine {
     private delegations: Delegation[] = [];
 
     constructor(private identityManager: IdentityManager) { }
 
-    // 5.1 Grant rule
-    grant(delegatorId: PrincipalId, granteeId: PrincipalId, scope: CapabilitySet, timestamp: string, signature: Signature) {
-        const d = this.identityManager.get(delegatorId);
-        const g = this.identityManager.get(granteeId);
+    public grant(
+        authorityId: AuthorityID,
+        granterId: EntityID,
+        granteeId: EntityID,
+        capacityId: CapacityID,
+        jurisdiction: JurisdictionID,
+        timestamp: string,
+        signature: Signature
+    ) {
+        const granter = this.identityManager.get(granterId);
+        const grantee = this.identityManager.get(granteeId);
 
-        if (!d || !d.alive) throw new Error(`Grant Error: Delegator ${delegatorId} not alive`);
-        if (!g || !g.alive) throw new Error(`Grant Error: Grantee ${granteeId} not alive`);
-
-        // 5.2 No scope amplification
-        const dScope = this.getEffectiveScope(delegatorId);
-        if (!scope.isSubsetOf(dScope)) {
-            throw new Error(`Grant Error: Scope Amplification. Request: ${scope.all}, Available: ${dScope.all}`);
-        }
+        if (!granter || granter.status !== 'ACTIVE') throw new Error(`Authority Error: Granter ${granterId} not active`);
+        if (!grantee || grantee.status !== 'ACTIVE') throw new Error(`Authority Error: Grantee ${granteeId} not active`);
 
         // Verify Signature
         if (signature !== 'GOVERNANCE_SIGNATURE') {
-            // Updated serialization for structured capabilities
-            const scopeData = JSON.stringify(scope.all.map(c => `${c.action}:${c.resource}`));
-            const data = `${delegatorId}:${granteeId}:${scopeData}:${timestamp}`;
-
-            if (!verifySignature(data, signature, d.publicKey)) {
-                throw new Error("Grant Error: Invalid Signature");
+            const data = `${granterId}:${granteeId}:${capacityId}:${jurisdiction}:${timestamp}`;
+            if (!verifySignature(data, signature, granter.publicKey)) {
+                throw new Error("Authority Error: Invalid Signature");
             }
         }
 
         this.delegations.push({
-            delegator: delegatorId,
+            authorityId,
+            granter: granterId,
             grantee: granteeId,
-            scope: scope,
-            timestamp: timestamp,
-            signature: signature
+            capacity: capacityId,
+            jurisdiction,
+            timestamp,
+            signature
         });
     }
 
-    // 4.1 Effective scope
-    public getEffectiveScope(id: PrincipalId): CapabilitySet {
-        const p = this.identityManager.get(id);
-        if (!p || !p.alive) return CapabilitySet.empty();
+    /**
+     * Primitive Relation: Entity holds Capacity
+     * Answers: "In what capacity is this entity acting?"
+     */
+    public getCapacities(entityId: EntityID): CapacityID[] {
+        const entity = this.identityManager.get(entityId);
+        if (!entity || entity.status !== 'ACTIVE') return [];
 
-        // All authority is root-anchored (4.3)
-        if (p.isRoot) return p.scopeOf;
+        // Root has implicit total capacity (simplified)
+        if (entity.isRoot) return ['TOTAL_CAPACITY'];
 
-        // EffectiveScope(i) == scopeOf[i] ∩ DelegatedScope(i)
-        const delegated = this.getDelegatedScope(id, new Set());
-        return p.scopeOf.intersect(delegated);
+        return this.delegations
+            .filter(d => d.grantee === entityId)
+            .map(d => d.capacity);
     }
 
-    // 4.1 DelegatedScope(i)
-    private getDelegatedScope(id: PrincipalId, visited: Set<string>): CapabilitySet {
-        const result = new CapabilitySet();
+    /**
+     * Primitive Relation: Capacity permits Action
+     * For now, we use the string matching from previous version but renamed.
+     */
+    public authorized(entityId: EntityID, check: string): boolean {
+        const entity = this.identityManager.get(entityId);
+        if (!entity || entity.status !== 'ACTIVE') return false;
+        if (entity.isRoot) return true;
 
-        // Prevent infinite recursion in delegation chains
-        if (visited.has(id)) return result;
-        visited.add(id);
+        // Check format "ACTION:RESOURCE"
+        const resource = check.includes(':') ? check.split(':')[1]! : check;
 
-        // UNION { s : ∃ d, t : (d, i, s, t) ∈ delegations ∧ d ∈ alive ∧ i ∈ alive }
-        const activeDelegations = this.delegations.filter(d =>
-            d.grantee === id &&
-            this.identityManager.get(d.delegator)?.alive
-        );
+        return this.delegations.some(d => {
+            if (d.grantee !== entityId) return false;
 
-        for (const d of activeDelegations) {
-            // Restriction: Delegation cannot exceed the delegator's authority.
-            // In the formal spec, this is checked at grant time (5.2),
-            // but we must re-evaluate because a delegator might have lost power (6.2).
-            const dEffective = this.getEffectiveScopeAtTimeOfAction(d.delegator, visited);
-            const validPart = d.scope.intersect(dEffective);
-
-            validPart.all.forEach(c => result.add(c));
-        }
-
-        return result;
-    }
-
-    private getEffectiveScopeAtTimeOfAction(id: PrincipalId, visited: Set<string>): CapabilitySet {
-        const p = this.identityManager.get(id);
-        if (!p || !p.alive) return CapabilitySet.empty();
-        if (p.isRoot) return p.scopeOf;
-
-        const delegated = this.getDelegatedScope(id, visited);
-        return p.scopeOf.intersect(delegated);
-    }
-
-    // 8. Kernel Authority Query
-    public authorized(id: PrincipalId, capString: string): boolean {
-        const p = this.identityManager.get(id);
-        if (!p || !p.alive) return false;
-
-        // Parse check string "ACTION:RESOURCE"
-        const [action, resource] = capString.split(':');
-        const cap: Capability = { action: action || '*', resource: resource || '*' };
-
-        const effective = this.getEffectiveScope(id);
-        return effective.implies(cap);
+            // Jurisdiction match: Exact, Wildcard, or Hierarchical
+            return resource === d.jurisdiction ||
+                d.jurisdiction === '*' ||
+                resource.startsWith(d.jurisdiction + '.');
+        });
     }
 }
+

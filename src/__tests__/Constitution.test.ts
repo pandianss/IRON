@@ -22,17 +22,16 @@ jest.unstable_mockModule('../L4/Protocol.js', () => ({
 
 // --- Real Inner Layers (The Core) ---
 import { GovernanceKernel } from '../Kernel.js';
-import { IdentityManager, DelegationEngine } from '../L1/Identity.js';
-import { CapabilitySet, CapabilityAlgebra } from '../L1/Identity.js'; // Ensure these are exported/usable
+import { IdentityManager, AuthorityEngine } from '../L1/Identity.js';
 import { AuditLog } from '../L5/Audit.js';
 import { Budget, BudgetType } from '../L0/Kernel.js';
 import { generateKeyPair, signData, hash } from '../L0/Crypto.js';
-import type { Intent } from '../L2/State.js';
+import type { Action } from '../L2/State.js';
 
 describe('The CONSTITUTION (Supreme Court Verification)', () => {
     let kernel: GovernanceKernel;
     let identity: IdentityManager;
-    let delegation: DelegationEngine;
+    let authority: AuthorityEngine;
     let audit: AuditLog;
 
     // Mocks
@@ -56,27 +55,26 @@ describe('The CONSTITUTION (Supreme Court Verification)', () => {
     });
 
     beforeEach(async () => {
-        testTime += 1000; // Increment for each test setup
-        // Reset Modules
+        testTime += 1000;
         const StateModule = await import('../L2/State.js');
         const ProtocolModule = await import('../L4/Protocol.js');
 
-        mockState = new StateModule.StateModel();
+        mockState = new StateModule.StateModel(audit, mockRegistry, identity);
         mockRegistry = new StateModule.MetricRegistry();
-        mockProtocols = new ProtocolModule.ProtocolEngine();
+        mockProtocols = new ProtocolModule.ProtocolEngine(mockState);
 
         // Real Logic
         audit = new AuditLog();
         identity = new IdentityManager();
-        delegation = new DelegationEngine(identity);
+        authority = new AuthorityEngine(identity);
 
-        // Register ROOT
+        // Register ROOT (Article I)
         identity.register({
             id: 'ROOT',
+            type: 'ACTOR',
+            identityProof: 'ROOT_PROOF',
+            status: 'ACTIVE',
             publicKey: rootKeys.publicKey,
-            type: 'INDIVIDUAL',
-            // Capability Set construction manually matching Ontology
-            scopeOf: new CapabilitySet([{ action: '*', resource: '*' }]),
             isRoot: true,
             createdAt: '0:0'
         });
@@ -84,15 +82,16 @@ describe('The CONSTITUTION (Supreme Court Verification)', () => {
         // Register USER
         identity.register({
             id: 'user',
+            type: 'ACTOR',
+            identityProof: 'USER_PROOF',
+            status: 'ACTIVE',
             publicKey: userKeys.publicKey,
-            type: 'INDIVIDUAL',
-            scopeOf: new CapabilitySet([{ action: 'METRIC.WRITE', resource: 'user.data' }]),
             createdAt: '0:0'
         });
 
         kernel = new GovernanceKernel(
             identity,
-            delegation,
+            authority,
             mockState,
             mockProtocols,
             audit,
@@ -101,23 +100,28 @@ describe('The CONSTITUTION (Supreme Court Verification)', () => {
 
         kernel.boot();
 
-        // DELEGATE POWER (Root -> User)
-        kernel.grantDelegation('ROOT', 'ROOT', 'user', ['METRIC.WRITE:user.data'], 9999999999);
+        // DELEGATE POWER (Article III.2)
+        kernel.grantAuthority('ROOT', 'ROOT', 'user', 'USER_ROLE', 'user.data');
     });
 
-    const createIntent = (principal: string, keys: any, metric: string, val: any, ts: string = '1000:0') => {
+    const createAction = (initiator: string, keys: any, metric: string, val: any, ts: string = '1000:0') => {
         const payload = { metricId: metric, value: val };
-        const id = hash(`${principal}:${metric}:${ts}`);
-        // MATCH Guards.ts: `${intent.intentId}:${intent.principalId}:${JSON.stringify(intent.payload)}:${intent.timestamp}:${intent.expiresAt}`
-        const data = `${id}:${principal}:${JSON.stringify(payload)}:${ts}:0`;
+        const exp = '0:0';
+
+        // Match ActionFactory: Action ID = SHA256(Initiator + Payload + TS + Exp)
+        const id = hash(`${initiator}:${JSON.stringify(payload)}:${ts}:${exp}`);
+
+        // MATCH Guards.ts: `${intent.actionId}:${intent.initiator}:${JSON.stringify(intent.payload)}:${intent.timestamp}:${intent.expiresAt}`
+        const data = `${id}:${initiator}:${JSON.stringify(payload)}:${ts}:${exp}`;
+
         return {
-            intentId: id,
-            principalId: principal,
+            actionId: id,
+            initiator: initiator,
             payload,
             timestamp: ts,
-            expiresAt: '0',
+            expiresAt: exp,
             signature: signData(data, keys.privateKey)
-        } as Intent;
+        } as Action;
     };
 
     // --- III. Authority Law ---
@@ -125,55 +129,55 @@ describe('The CONSTITUTION (Supreme Court Verification)', () => {
         kernel.boot();
 
         // Mallory masquerades as User
-        const fakeIntent = createIntent('user', malloryKeys, 'user.data', 666);
+        const fakeAction = createAction('user', malloryKeys, 'user.data', 666);
 
-        const aid = kernel.submitAttempt('attacker', 'proto1', fakeIntent);
-        const status = kernel.guardAttempt(aid); // Should reject
+        const aid = kernel.submitAttempt('attacker', 'proto1', fakeAction);
+        const result = kernel.guardAttempt(aid);
 
-        expect(status).toBe('REJECTED');
-        // Verify Audit Log reason - SEARCH REVERSE to find REJECT (not ATTEMPT)
-        const entry = audit.getHistory().slice().reverse().find(e => e.intent.intentId === fakeIntent.intentId);
+        expect(result.status).toBe('REJECTED');
+
+        // Verify Audit Log (Evidence System)
+        const entry = audit.getHistory().slice().reverse().find(e => e.action.actionId === fakeAction.actionId);
         expect(entry).toBeDefined();
         expect(entry?.status).toBe('REJECT');
         expect(entry?.reason).toMatch(/Invalid Signature/);
     });
 
-    test('Law I (Authority): Scope Attenuation Enforcement', () => {
+    test('Law I (Authority): Jurisdiction Enforcement', () => {
         kernel.boot();
 
-        // User tries to write to ROOT data
-        const exceedIntent = createIntent('user', userKeys, 'kernel.root.config', 1);
+        // User tries to write to ROOT data (Outside of granted jurisdiction)
+        const exceedAction = createAction('user', userKeys, 'kernel.root.config', 1);
 
-        const aid = kernel.submitAttempt('user', 'proto1', exceedIntent);
-        const status = kernel.guardAttempt(aid);
+        const aid = kernel.submitAttempt('user', 'proto1', exceedAction);
+        const result = kernel.guardAttempt(aid);
 
-        expect(status).toBe('REJECTED');
-        const entry = audit.getHistory().slice().reverse().find(e => e.intent.intentId === exceedIntent.intentId);
+        expect(result.status).toBe('REJECTED');
+        const entry = audit.getHistory().slice().reverse().find(e => e.action.actionId === exceedAction.actionId);
         expect(entry?.status).toBe('REJECT');
-        expect(entry?.reason).toMatch(/Insufficient Scope/);
+        expect(entry?.reason).toMatch(/lacks Jurisdiction/);
     });
 
     // --- II. State Law ---
     test('Law II (State): Action requires Active Kernel', () => {
-        // Create a NEW kernel that is NOT booted
         const audit2 = new AuditLog();
-        const kernel2 = new GovernanceKernel(identity, delegation, mockState, mockProtocols, audit2, mockRegistry);
+        const kernel2 = new GovernanceKernel(identity, authority, mockState, mockProtocols, audit2, mockRegistry);
 
-        const intent = createIntent('user', userKeys, 'user.data', 1);
+        const action = createAction('user', userKeys, 'user.data', 1);
 
         expect(() => {
-            kernel2.submitAttempt('user', 'proto1', intent);
+            kernel2.submitAttempt('user', 'proto1', action);
         }).toThrow(/Cannot submit attempt in state CONSTITUTED/);
     });
 
     // --- III. Economic Law ---
     test('Law III (Economics): Budget is Finite', () => {
         kernel.boot();
-        const intent = createIntent('user', userKeys, 'user.data', 1);
-        const aid = kernel.submitAttempt('user', 'proto1', intent, 50); // Cost 50
-        kernel.guardAttempt(aid); // Accept
+        const action = createAction('user', userKeys, 'user.data', 1);
+        const aid = kernel.submitAttempt('user', 'proto1', action, 50);
+        kernel.guardAttempt(aid);
 
-        const tinyBudget = new Budget(BudgetType.ENERGY, 40); // Have 40
+        const tinyBudget = new Budget(BudgetType.ENERGY, 40);
 
         expect(() => {
             kernel.commitAttempt(aid, tinyBudget);
@@ -182,38 +186,36 @@ describe('The CONSTITUTION (Supreme Court Verification)', () => {
 
     // --- IV. Truth & Time Law ---
     test('Law IV (Truth): Time is Monotonic', async () => {
-        // testTime is already at some point X from beforeEach
         const startTs = testTime;
 
-        const i1 = createIntent('user', userKeys, 'user.data', 1, `${startTs}:0`);
+        const i1 = createAction('user', userKeys, 'user.data', 1, `${startTs}:0`);
         const aid1 = kernel.submitAttempt('user', 'proto1', i1);
         kernel.guardAttempt(aid1);
-        kernel.commitAttempt(aid1, new Budget(BudgetType.ENERGY, 100)); // Writes to Audit
+        kernel.commitAttempt(aid1, new Budget(BudgetType.ENERGY, 100));
 
         // Move time BACKWARDS
         testTime = startTs - 500;
 
-        const i2 = createIntent('user', userKeys, 'user.data', 2, `${testTime}:0`);
-        // submitAttempt should fail IMMEDIATELY because AuditLog enforces monotonicity
+        const i2 = createAction('user', userKeys, 'user.data', 2, `${testTime}:0`);
         expect(() => {
             kernel.submitAttempt('user', 'proto1', i2);
         }).toThrow(/Temporal integrity breached/);
     });
 
     // --- V. Identity Lifecycle Law ---
-    test('Law V (Identity): Revoked Identity has Zero Power', () => {
+    test('Law V (Identity): Revoked Entity has Zero Power', () => {
         kernel.boot();
 
         // Revoke user
-        kernel.revokeIdentity('ROOT', 'user');
+        kernel.revokeEntity('ROOT', 'user');
 
-        const intent = createIntent('user', userKeys, 'user.data', 1);
+        const action = createAction('user', userKeys, 'user.data', 1);
 
-        const aid = kernel.submitAttempt('user', 'proto1', intent);
-        const status = kernel.guardAttempt(aid);
+        const aid = kernel.submitAttempt('user', 'proto1', action);
+        const result = kernel.guardAttempt(aid);
 
-        expect(status).toBe('REJECTED');
-        const entry = audit.getHistory().slice().reverse().find(e => e.intent.intentId === intent.intentId);
-        expect(entry?.reason).toMatch(/Principal revoked/);
+        expect(result.status).toBe('REJECTED');
+        const entry = audit.getHistory().slice().reverse().find(e => e.action.actionId === action.actionId);
+        expect(entry?.reason).toMatch(/Entity revoked/);
     });
 });
