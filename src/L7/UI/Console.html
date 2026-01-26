@@ -29,66 +29,184 @@
 
         <!-- Main Workspace -->
         <main class="main">
-            <header class="header">
-                <div>
-                    <h1 style="font-size: 1.8rem;">Institutional State</h1>
-                    <p style="color: var(--text-muted);">Verifiable Truth Snapshot</p>
-                </div>
-                <div class="card" style="padding: 0.5rem 1rem;">
-                    <span class="status-dot status-nominal"></span>
-                    <span style="font-size: 0.8rem; color: var(--accent-cyan);">SYNCED TO AUDIT LOG</span>
-                </div>
-            </header>
-
-            <div class="matrix-grid">
-                <!-- Domain I & II -->
-                <div class="card">
-                    <div class="card-title">Discipline (Habit)</div>
-                    <div class="card-value">12 <span style="font-size: 0.8rem; color: var(--text-muted);">STREAK</span>
+            <!-- View: Institutional Mirror (Dashboard) -->
+            <div id="view-dashboard" class="view-section">
+                <header class="header">
+                    <div>
+                        <h1 style="font-size: 1.8rem;">Institutional State</h1>
+                        <p style="color: var(--text-muted);">Verifiable Truth Snapshot</p>
                     </div>
-                </div>
-                <div class="card">
-                    <div class="card-title">Velocity (Performance)</div>
-                    <div class="card-value">1.8 <span
-                            style="font-size: 0.8rem; color: var(--text-muted);">ACTIONS/H</span></div>
-                </div>
-
-                <!-- Domain III & IV -->
-                <div class="card">
-                    <div class="card-title">Org Health (Team)</div>
-                    <div class="card-value">98<span style="font-size: 1.2rem;">%</span></div>
-                </div>
-                <div class="card">
-                    <div class="card-title">Compliance Score (Risk)</div>
-                    <div class="card-value" style="color: var(--accent-cyan);">9.4<span
-                            style="font-size: 1.2rem;">/10</span></div>
-                </div>
-
-                <!-- Domain V & VI -->
-                <div class="card">
-                    <div class="card-title">Authority (Wallet)</div>
-                    <div class="card-value">SOVEREIGN</div>
-                </div>
-                <div class="card">
-                    <div class="card-title">Drift Alert (Intel)</div>
-                    <div class="card-value" style="color: var(--accent-cyan);">NOMINAL</div>
-                </div>
-
-                <!-- Strategic Sandbox -->
-                <div class="sim-panel">
-                    <div class="sim-grid-lines"></div>
-                    <div style="position: absolute; top: 1rem; left: 1rem;">
-                        <span class="card-title">Strategic Sandbox: What-If Simulation</span>
+                    <div class="card" style="padding: 0.5rem 1rem;">
+                        <span class="status-dot status-nominal"></span>
+                        <span style="font-size: 0.8rem; color: var(--accent-cyan);">SYNCED TO AUDIT LOG</span>
                     </div>
-                    <div style="position: absolute; bottom: 1rem; right: 1rem;">
-                        <button class="card"
-                            style="padding: 0.5rem 1rem; cursor: pointer; background: var(--accent-blue);">PROPOSE
-                            EVOLUTION</button>
+                </header>
+
+                <div class="matrix-grid">
+                    <!-- Domain I & II -->
+                    <div class="card">
+                        <div class="card-title">Discipline (Habit)</div>
+                        <div class="card-value">12 <span
+                                style="font-size: 0.8rem; color: var(--text-muted);">STREAK</span>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Velocity (Performance)</div>
+                        <div class="card-value">1.8 <span
+                                style="font-size: 0.8rem; color: var(--text-muted);">ACTIONS/H</span></div>
+                    </div>
+
+                    <!-- Domain III & IV -->
+                    <div class="card">
+                        <div class="card-title">Org Health (Team)</div>
+                        <div class="card-value">98<span style="font-size: 1.2rem;">%</span></div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Compliance Score (Risk)</div>
+                        <div class="card-value" style="color: var(--accent-cyan);">9.4<span
+                                style="font-size: 1.2rem;">/10</span></div>
+                    </div>
+
+                    <!-- Domain V & VI -->
+                    <div class="card">
+                        <div class="card-title">Authority (Wallet)</div>
+                        <div class="card-value">SOVEREIGN</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Drift Alert (Intel)</div>
+                        <div class="card-value" style="color: var(--accent-cyan);">NOMINAL</div>
+                    </div>
+
+                    <!-- Strategic Sandbox -->
+                    <div class="sim-panel">
+                        <div class="sim-grid-lines"></div>
+                        <div style="position: absolute; top: 1rem; left: 1rem;">
+                            <span class="card-title">Strategic Sandbox: What-If Simulation</span>
+                        </div>
+                        <div style="position: absolute; bottom: 1rem; right: 1rem;">
+                            <button class="card"
+                                style="padding: 0.5rem 1rem; cursor: pointer; background: var(--accent-blue);">PROPOSE
+                                EVOLUTION</button>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            <!-- View: Execution (Habit) -->
+            <div id="view-execution" class="view-section" style="display: none;">
+                <header class="header">
+                    <h1>Domain I: Execution</h1>
+                    <p style="color: var(--text-muted);">Iron Habit & Discipline Protocols</p>
+                </header>
+                <div class="matrix-grid">
+                    <div class="card">
+                        <div class="card-title">Current Streak</div>
+                        <div class="card-value">12</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Total Journal Entries</div>
+                        <div class="card-value">148</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Rest Tokens</div>
+                        <div class="card-value">4</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Performance -->
+            <div id="view-performance" class="view-section" style="display: none;">
+                <header class="header">
+                    <h1>Domain II: Performance</h1>
+                    <p style="color: var(--text-muted);">Verifiable MIS & KPIs</p>
+                </header>
+                <div class="matrix-grid">
+                    <div class="card">
+                        <div class="card-title">Velocity Estimate</div>
+                        <div class="card-value">1.8/h</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Team Throughput</div>
+                        <div class="card-value">42</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Coordination (Team) -->
+            <div id="view-coordination" class="view-section" style="display: none;">
+                <header class="header">
+                    <h1>Domain III: Coordination</h1>
+                    <p style="color: var(--text-muted);">Iron Team Hierarchy</p>
+                </header>
+                <div class="matrix-grid">
+                    <div class="card">
+                        <div class="card-title">Active Roles</div>
+                        <div class="card-value">5</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Delegation Depth</div>
+                        <div class="card-value">L3</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Risk -->
+            <div id="view-risk" class="view-section" style="display: none;">
+                <header class="header">
+                    <h1>Domain IV: Risk</h1>
+                    <p style="color: var(--text-muted);">Compliance & Safety</p>
+                </header>
+                <div class="matrix-grid">
+                    <div class="card">
+                        <div class="card-title">Active Incidents</div>
+                        <div class="card-value" style="color: #10b981;">0</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Audit Coverage</div>
+                        <div class="card-value">100%</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Authority -->
+            <div id="view-authority" class="view-section" style="display: none;">
+                <header class="header">
+                    <h1>Domain V: Authority</h1>
+                    <p style="color: var(--text-muted);">Iron Wallet & Identity</p>
+                </header>
+                <div class="matrix-grid">
+                    <div class="card">
+                        <div class="card-title">Root Key Status</div>
+                        <div class="card-value" style="color: #10b981;">SECURE</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Nominees</div>
+                        <div class="card-value">2</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- View: Intelligence -->
+            <div id="view-intelligence" class="view-section" style="display: none;">
+                <header class="header">
+                    <h1>Domain VI: Intelligence</h1>
+                    <p style="color: var(--text-muted);">Evolution & Simulation</p>
+                </header>
+                <div class="matrix-grid">
+                    <div class="card">
+                        <div class="card-title">Simulations Run</div>
+                        <div class="card-value">1,024</div>
+                    </div>
+                    <div class="card">
+                        <div class="card-title">Self-Correction Events</div>
+                        <div class="card-value">3</div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
+    <script src="App.js"></script>
 </body>
 
 </html>
