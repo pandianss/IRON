@@ -262,4 +262,8 @@ export class StateModel {
     public get(metricId: string): any {
         return this.currentState.metrics[metricId]?.value;
     }
+
+    public getHistory(metricId: string): StateValue[] {
+        return this.historyCache.get(metricId) || [];
+    }
 }

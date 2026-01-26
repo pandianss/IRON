@@ -140,3 +140,13 @@
 - [x] **Interface (L6)**
     - [x] `IronPerformanceInterface.ts` (Scorecard & Console)
     - [x] Verification: `System.test.ts` (Aggregation & Drift)
+
+## Stratum IX: Iron Intelligence (Verifiable Evolution)
+- [x] **Constitution**
+    - [x] `IRON_INTELLIGENCE_CONSTITUTION.md` (Evolution Engine)
+- [x] **Protocols (L4)**
+    - [x] `SimulationVerification` (Strategy)
+    - [x] `AdaptiveEvolution` (Self-Opt)
+- [x] **Interface (L6)**
+    - [x] `IronIntelligenceInterface.ts` (What-If & War Room)
+    - [x] Verification: `System.test.ts` (Sim & Evo)

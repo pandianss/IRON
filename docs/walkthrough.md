@@ -87,5 +87,11 @@ The system now includes the **Verifiable Insight Engine**:
 - **Interface**: L6 API for `getScorecard` (Personal) and `getConsole` (Institutional).
 - **MIS**: Hierarchical alignment of truth – individual discipline feeds team velocity.
 
+## Extension: Stratum IX (Iron Intelligence)
+The system now includes the **Verifiable Evolution Engine**:
+- **Protocols**: `SimulationVerification` (Strategy Validation) and `AdaptiveEvolution` (Self-Optimization).
+- **Interface**: L6 API for `runWhatIf` scenarios and `proposeEvolution`.
+- **Intelligence**: Closing the loop – using L3 simulations to evolve L4 protocols based on L2 truth.
+
 ## Conclusion
 The system adheres to the "Iron." specification, "Minimum Cryptographic & Security Specification", and formally verified safety properties.
