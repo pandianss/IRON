@@ -3,7 +3,7 @@
 import type { Protocol, ProtocolCategory } from './ProtocolTypes.js';
 
 export const ALLOWED_CATEGORIES: Set<ProtocolCategory> = new Set([
-    'Intent', 'Habit', 'Budget', 'Authority', 'Accountability', 'Risk', 'Continuity', 'Incapacity'
+    'Intent', 'Habit', 'Budget', 'Authority', 'Accountability', 'Risk', 'Continuity', 'Incapacity', 'Coordination'
 ]);
 
 export class ExtensionValidator {

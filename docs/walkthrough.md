@@ -75,5 +75,11 @@ The system now includes the **Cryptographic Discipline Engine**:
 - **Interface**: L6 API for `checkIn` and `skipDay`.
 - **Economics**: Enforced spending of `RestTokens` to preserve streaks, preventing inflation.
 
+## Extension: Stratum VII (Iron Team)
+The system now includes the **Cryptographic Coordination Engine**:
+- **Protocols**: `RoleDelegation` (Role Card Issuance) and `TeamSync` (Cadence Heartbeat).
+- **Interface**: L6 API for `issueRoleCard` and `syncTeam`.
+- **Authority Map**: Live cryptographic visualization of the organizational hierarchy based on L1 Delegations.
+
 ## Conclusion
 The system adheres to the "Iron." specification, "Minimum Cryptographic & Security Specification", and formally verified safety properties.

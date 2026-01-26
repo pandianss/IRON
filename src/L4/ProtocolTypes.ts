@@ -2,7 +2,7 @@
 import type { Protocol as ProtocolPrimitive, EntityID, CapacityID, ProtocolID } from '../L0/Ontology.js';
 
 export type ProtocolLifecycle = 'PROPOSED' | 'RATIFIED' | 'ACTIVE' | 'SUSPENDED' | 'DEPRECATED' | 'REVOKED';
-export type ProtocolCategory = 'Intent' | 'Habit' | 'Budget' | 'Authority' | 'Accountability' | 'Risk' | 'Continuity' | 'Incapacity';
+export type ProtocolCategory = 'Intent' | 'Habit' | 'Budget' | 'Authority' | 'Accountability' | 'Risk' | 'Continuity' | 'Incapacity' | 'Coordination';
 
 /**
  * 7. Protocol (Primitive)
@@ -69,7 +69,7 @@ export const ProtocolSchema = z.object({
     id: z.string().optional(), // Server generated if missing
     name: z.string().min(3),
     version: z.string().default('1.0.0'),
-    category: z.enum(['Intent', 'Habit', 'Budget', 'Authority', 'Accountability', 'Risk', 'Continuity', 'Incapacity']),
+    category: z.enum(['Intent', 'Habit', 'Budget', 'Authority', 'Accountability', 'Risk', 'Continuity', 'Incapacity', 'Coordination']),
     lifecycle: z.enum(['PROPOSED', 'RATIFIED', 'ACTIVE', 'SUSPENDED', 'DEPRECATED', 'REVOKED']).default('PROPOSED'),
     strict: z.boolean().optional(),
     execution: z.array(RuleSchema),

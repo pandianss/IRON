@@ -120,3 +120,13 @@
 - [x] **Interface (L6)**
     - [x] `IronHabitInterface.ts` (Check-In & Skip)
     - [x] Verification: `System.test.ts` (Streak & Budget)
+
+## Stratum VII: Iron Team (Cryptographic Coordination)
+- [x] **Constitution**
+    - [x] `IRON_TEAM_CONSTITUTION.md` (Coordination Engine)
+- [x] **Protocols (L4)**
+    - [x] `RoleDelegation` (Card Issuance)
+    - [x] `TeamSync` (Cadence Sync)
+- [x] **Interface (L6)**
+    - [x] `IronTeamInterface.ts` (Grant & Sync)
+    - [x] Verification: `System.test.ts` (Hierarchy & Heartbeat)
